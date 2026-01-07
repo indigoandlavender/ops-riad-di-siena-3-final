@@ -226,10 +226,16 @@ export default function HomePage() {
   // Fetch bookings
   const fetchBookings = async () => {
     try {
-      const res = await fetch("/api/admin/bookings");
+      const res = await fetch(`/api/admin/bookings?_t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       
-      const mapped = (data.bookings || []).map((b: any, idx: number) => ({
+      // Filter out cancelled bookings
+      const activeBookings = (data.bookings || []).filter((b: any) => {
+        const status = (b.status || "").toLowerCase();
+        return status !== "cancelled" && status !== "canceled";
+      });
+      
+      const mapped = activeBookings.map((b: any, idx: number) => ({
         id: b.Booking_ID || `booking-${idx}`,
         guestName: [b.firstName, b.lastName].filter(Boolean).join(" ") || "Guest",
         room: b.room || "",
@@ -718,6 +724,18 @@ export default function HomePage() {
             >
               <svg className="w-5 h-5 text-black/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <button
+              onClick={() => {
+                setLoading(true);
+                fetchBookings().finally(() => setLoading(false));
+              }}
+              className="px-3 py-2 text-[13px] font-medium text-black/70 hover:bg-black/[0.04] rounded-lg transition-colors flex items-center gap-1"
+              title="Refresh bookings"
+            >
+              <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>
           </div>
