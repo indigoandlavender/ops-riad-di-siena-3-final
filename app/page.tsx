@@ -914,10 +914,10 @@ export default function HomePage() {
                             colSpan={isStart ? span : 1}
                             className={`border-b border-r border-black/[0.06] p-1 h-14 ${
                               isToday(date) ? "bg-black/[0.04]" : isWeekend(date) ? "bg-black/[0.02]" : ""
-                            } ${!booking ? "cursor-pointer hover:bg-black/[0.04]" : ""}`}
+                            } ${!booking ? "cursor-pointer hover:bg-black/[0.04] group" : ""}`}
                             onClick={() => !booking && handleCellClick(room, date)}
                           >
-                            {isStart && booking && (
+                            {isStart && booking ? (
                               <div
                                 className={`${getSourceColor(booking.source)} ${getSourceTextColor(booking.source)} rounded px-2 py-1 text-[11px] font-medium truncate cursor-pointer hover:opacity-90 transition-opacity`}
                                 style={{ minHeight: "36px" }}
@@ -929,6 +929,12 @@ export default function HomePage() {
                               >
                                 <div className="truncate">{booking.guestName}</div>
                                 <div className="text-[10px] opacity-75">{booking.nights}n</div>
+                              </div>
+                            ) : !booking && (
+                              <div className="h-full w-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-black/30">
+                                  <path d="M8 3v10M3 8h10" />
+                                </svg>
                               </div>
                             )}
                           </td>
@@ -975,10 +981,10 @@ export default function HomePage() {
                             colSpan={isStart ? span : 1}
                             className={`border-b border-r border-black/[0.06] p-1 h-14 ${
                               isToday(date) ? "bg-black/[0.04]" : isWeekend(date) ? "bg-black/[0.02]" : ""
-                            } ${!booking ? "cursor-pointer hover:bg-black/[0.04]" : ""}`}
+                            } ${!booking ? "cursor-pointer hover:bg-black/[0.04] group" : ""}`}
                             onClick={() => !booking && handleCellClick(room, date)}
                           >
-                            {isStart && booking && (
+                            {isStart && booking ? (
                               <div
                                 className={`${getSourceColor(booking.source)} ${getSourceTextColor(booking.source)} rounded px-2 py-1 text-[11px] font-medium truncate cursor-pointer hover:opacity-90 transition-opacity`}
                                 style={{ minHeight: "36px" }}
@@ -990,6 +996,12 @@ export default function HomePage() {
                               >
                                 <div className="truncate">{booking.guestName}</div>
                                 <div className="text-[10px] opacity-75">{booking.nights}n</div>
+                              </div>
+                            ) : !booking && (
+                              <div className="h-full w-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-black/30">
+                                  <path d="M8 3v10M3 8h10" />
+                                </svg>
                               </div>
                             )}
                           </td>
@@ -1396,8 +1408,8 @@ We look forward to welcoming you! ✨`
               </div>
             </div>
 
-            {/* Form Content - Scrollable */}
-            <div className="p-6 space-y-6 overflow-y-auto flex-1">
+            {/* Form Content - Scrollable (hidden scrollbar) */}
+            <div className="p-6 space-y-6 overflow-y-auto flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {/* Blackout Toggle */}
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
