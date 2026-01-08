@@ -225,12 +225,20 @@ function GuestCard({
                     <p className="text-amber-600 text-[11px] font-medium">No arrival time</p>
                     <div className="flex flex-col gap-1">
                       {guest.phone && (
-                        <button
-                          onClick={() => sendArrivalWhatsApp(guest)}
-                          className="text-[10px] px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200"
-                        >
-                          Send Form
-                        </button>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => sendArrivalWhatsApp(guest)}
+                            className="text-[10px] px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200"
+                          >
+                            Send Form
+                          </button>
+                          <button
+                            onClick={() => copyArrivalLink(guest)}
+                            className="text-[10px] px-2 py-1 bg-black/5 text-black/60 rounded hover:bg-black/10"
+                          >
+                            {copiedId === guest.booking_id ? "Copied!" : "Copy Link"}
+                          </button>
+                        </div>
                       )}
                       <button
                         onClick={() => {
