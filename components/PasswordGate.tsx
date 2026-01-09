@@ -95,7 +95,12 @@ export default function PasswordGate({ children }: PasswordGateProps) {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-black/40 hover:text-black/60 transition-colors"
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    setShowPassword(!showPassword);
+                  }}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-3 text-black/40 hover:text-black/60 active:text-black/80 transition-colors touch-manipulation"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
                     /* Eye open - password visible */

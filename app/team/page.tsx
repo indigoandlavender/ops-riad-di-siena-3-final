@@ -1198,7 +1198,7 @@ See you soon!
                 <span className="text-[10px] uppercase tracking-wide text-amber-600">Today</span>
                 <span className="text-[13px] font-medium text-amber-700">€{taxStats.daily.total.toFixed(0)}</span>
                 {taxStats.daily.unpaid > 0 && (
-                  <span className="text-[10px] text-amber-500">({taxStats.daily.unpaidCount} pending)</span>
+                  <span className="text-[10px] text-amber-500">({taxStats.daily.bookings.filter(b => !b.paid).length} pending)</span>
                 )}
               </div>
               <div className="w-px h-4 bg-amber-200" />
