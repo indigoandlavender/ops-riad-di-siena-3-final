@@ -19,12 +19,14 @@ interface Expense {
   amount_dh: number;
   receipt_url: string;
   created_at: string;
+  source?: string; // admin, zahra, or mouad
 }
 
 interface Summary {
   total: number;
   byCategory: Record<string, number>;
   byMonth: Record<string, number>;
+  bySource?: Record<string, number>;
   count: number;
 }
 
@@ -544,7 +546,18 @@ export default function ExpensesPage() {
                         <td className="px-4 py-3 text-[13px] text-stone-600">
                           {new Date(expense.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                         </td>
-                        <td className="px-4 py-3 text-[13px] text-stone-800">{expense.description}</td>
+                        <td className="px-4 py-3 text-[13px] text-stone-800">
+                          {expense.description}
+                          {expense.source && expense.source !== "admin" && (
+                            <span className={`ml-2 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                              expense.source === "zahra" 
+                                ? "bg-blue-50 text-blue-600" 
+                                : "bg-purple-50 text-purple-600"
+                            }`}>
+                              {expense.source === "zahra" ? "Z" : "M"}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <span className="inline-block px-2 py-0.5 bg-stone-100 rounded text-[11px] text-stone-600">
                             {expense.category}

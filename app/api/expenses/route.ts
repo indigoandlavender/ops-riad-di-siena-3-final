@@ -19,53 +19,90 @@ async function getSheets() {
   return google.sheets({ version: "v4", auth });
 }
 
-// GET - List all expenses
+// GET - List all expenses (combines Expenses + Expenses_Zahra + Expenses_Mouad)
 export async function GET() {
   try {
     const sheets = await getSheets();
     
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
-      range: "Expenses!A2:G1000",
-    });
+    // Fetch from all three tabs
+    const tabs = [
+      { name: "Expenses", source: "admin" },
+      { name: "Expenses_Zahra", source: "zahra" },
+      { name: "Expenses_Mouad", source: "mouad" },
+    ];
 
-    const rows = response.data.values || [];
-    
-    const expenses = rows.map((row) => ({
-      expense_id: row[0] || "",
-      date: row[1] || "",
-      description: row[2] || "",
-      category: row[3] || "",
-      amount_dh: parseFloat(row[4]) || 0,
-      receipt_url: row[5] || "",
-      created_at: row[6] || "",
-    })).filter(e => e.expense_id);
+    const allExpenses: Array<{
+      expense_id: string;
+      date: string;
+      description: string;
+      category: string;
+      amount_dh: number;
+      receipt_url: string;
+      created_at: string;
+      source: string;
+    }> = [];
+
+    for (const tab of tabs) {
+      try {
+        const response = await sheets.spreadsheets.values.get({
+          spreadsheetId: SHEET_ID,
+          range: `${tab.name}!A2:G1000`,
+        });
+
+        const rows = response.data.values || [];
+        
+        rows.forEach((row) => {
+          if (row[0]) { // Has expense_id
+            allExpenses.push({
+              expense_id: row[0] || "",
+              date: row[1] || "",
+              description: row[2] || "",
+              category: row[3] || "",
+              amount_dh: parseFloat(row[4]) || 0,
+              receipt_url: row[5] || "",
+              created_at: row[6] || "",
+              source: tab.source,
+            });
+          }
+        });
+      } catch (tabError) {
+        // Tab might not exist yet, skip it
+        console.log(`Tab ${tab.name} not found, skipping`);
+      }
+    }
 
     // Sort by date descending
-    expenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    allExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     // Calculate totals by category
     const byCategory: Record<string, number> = {};
     let total = 0;
-    expenses.forEach(e => {
+    allExpenses.forEach(e => {
       byCategory[e.category] = (byCategory[e.category] || 0) + e.amount_dh;
       total += e.amount_dh;
     });
 
     // Monthly totals
     const byMonth: Record<string, number> = {};
-    expenses.forEach(e => {
+    allExpenses.forEach(e => {
       const month = e.date.substring(0, 7); // YYYY-MM
       byMonth[month] = (byMonth[month] || 0) + e.amount_dh;
     });
 
+    // By source totals
+    const bySource: Record<string, number> = {};
+    allExpenses.forEach(e => {
+      bySource[e.source] = (bySource[e.source] || 0) + e.amount_dh;
+    });
+
     return NextResponse.json({
-      expenses,
+      expenses: allExpenses,
       summary: {
         total,
         byCategory,
         byMonth,
-        count: expenses.length,
+        bySource,
+        count: allExpenses.length,
       },
     });
   } catch (error) {
