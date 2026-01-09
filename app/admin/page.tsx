@@ -27,6 +27,56 @@ interface DashboardStats {
   totalRevenue: number;
 }
 
+interface TaxStats {
+  date: string;
+  month: string;
+  daily: {
+    total: number;
+    paid: number;
+    unpaid: number;
+    bookings: Array<{
+      booking_id: string;
+      guest_name: string;
+      tax_amount: number;
+      paid: boolean;
+      paid_at: string;
+    }>;
+  };
+  monthly: {
+    total: number;
+    paid: number;
+    unpaid: number;
+    bookingCount: number;
+  };
+}
+
+interface RevenueStats {
+  month: string;
+  monthLabel: string;
+  totals: {
+    gross: number;
+    commission: number;
+    net: number;
+    bookingCount: number;
+  };
+  bySource: Array<{
+    source: string;
+    gross: number;
+    commission: number;
+    net: number;
+    count: number;
+    commissionRate: number;
+  }>;
+  history: Array<{
+    month: string;
+    label: string;
+    gross: number;
+    commission: number;
+    net: number;
+    bookingCount: number;
+  }>;
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
     newBookings: 0,
@@ -35,9 +85,12 @@ export default function AdminDashboard() {
     totalRevenue: 0,
   });
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
+  const [revenueStats, setRevenueStats] = useState<RevenueStats | null>(null);
+  const [taxStats, setTaxStats] = useState<TaxStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Fetch bookings
     fetch("/api/admin/bookings")
       .then((r) => r.json())
       .then((data) => {
@@ -55,6 +108,26 @@ export default function AdminDashboard() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+
+    // Fetch tax stats
+    fetch("/api/tax/stats")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.error) {
+          setTaxStats(data);
+        }
+      })
+      .catch(() => {});
+
+    // Fetch revenue stats
+    fetch("/api/revenue/stats")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.error) {
+          setRevenueStats(data);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const formatDate = (dateStr: string) => {
@@ -121,6 +194,145 @@ export default function AdminDashboard() {
                 <p className="text-[11px] uppercase tracking-[0.08em] text-black/40 mt-1">Revenue</p>
               </div>
             </div>
+
+            {/* City Tax Stats */}
+            {taxStats && (
+              <div className="mb-12 p-6 bg-amber-50 rounded-lg border border-amber-200">
+                <div className="flex items-center gap-2 mb-4">
+                  <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h2 className="font-serif text-[18px] text-amber-800">City Tax (Booking.com)</h2>
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  {/* Today */}
+                  <div className="bg-white rounded-lg p-4 border border-amber-100">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-amber-600 mb-2">Today</p>
+                    <div className="flex items-baseline gap-3">
+                      <p className="text-[32px] font-serif text-amber-800">€{taxStats.daily.total.toFixed(0)}</p>
+                      {taxStats.daily.bookings.length > 0 && (
+                        <p className="text-[13px] text-amber-600">
+                          {taxStats.daily.bookings.length} guest{taxStats.daily.bookings.length !== 1 ? "s" : ""}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-4 mt-2 text-[12px]">
+                      <span className="text-green-600">€{taxStats.daily.paid.toFixed(0)} paid</span>
+                      {taxStats.daily.unpaid > 0 && (
+                        <span className="text-amber-600">€{taxStats.daily.unpaid.toFixed(0)} pending</span>
+                      )}
+                    </div>
+                  </div>
+                  {/* This Month */}
+                  <div className="bg-white rounded-lg p-4 border border-amber-100">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-amber-600 mb-2">
+                      {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                    </p>
+                    <div className="flex items-baseline gap-3">
+                      <p className="text-[32px] font-serif text-amber-800">€{taxStats.monthly.total.toFixed(0)}</p>
+                      {taxStats.monthly.bookingCount > 0 && (
+                        <p className="text-[13px] text-amber-600">
+                          {taxStats.monthly.bookingCount} booking{taxStats.monthly.bookingCount !== 1 ? "s" : ""}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-4 mt-2 text-[12px]">
+                      <span className="text-green-600">€{taxStats.monthly.paid.toFixed(0)} paid</span>
+                      {taxStats.monthly.unpaid > 0 && (
+                        <span className="text-amber-600">€{taxStats.monthly.unpaid.toFixed(0)} pending</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Monthly Revenue */}
+            {revenueStats && (
+              <div className="mb-12 p-6 bg-emerald-50 rounded-lg border border-emerald-200">
+                <div className="flex items-center gap-2 mb-4">
+                  <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <h2 className="font-serif text-[18px] text-emerald-800">Revenue — {revenueStats.monthLabel}</h2>
+                </div>
+                
+                {/* Totals Row */}
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="bg-white rounded-lg p-4 border border-emerald-100">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-emerald-600 mb-1">Gross Revenue</p>
+                    <p className="text-[28px] font-serif text-emerald-800">€{revenueStats.totals.gross.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                    <p className="text-[12px] text-emerald-600 mt-1">{revenueStats.totals.bookingCount} bookings</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border border-red-100">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-red-500 mb-1">Commission</p>
+                    <p className="text-[28px] font-serif text-red-600">−€{revenueStats.totals.commission.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                    <p className="text-[12px] text-red-500 mt-1">
+                      {revenueStats.totals.gross > 0 ? ((revenueStats.totals.commission / revenueStats.totals.gross) * 100).toFixed(1) : 0}% avg
+                    </p>
+                  </div>
+                  <div className="bg-emerald-100 rounded-lg p-4 border border-emerald-200">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-emerald-700 mb-1">Net Revenue</p>
+                    <p className="text-[28px] font-serif text-emerald-800">€{revenueStats.totals.net.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                    <p className="text-[12px] text-emerald-700 mt-1">after fees</p>
+                  </div>
+                </div>
+
+                {/* By Source Breakdown */}
+                <div className="bg-white rounded-lg border border-emerald-100 overflow-hidden">
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr className="border-b border-emerald-100 bg-emerald-50/50">
+                        <th className="text-left py-2 px-4 font-medium text-emerald-700">Source</th>
+                        <th className="text-right py-2 px-4 font-medium text-emerald-700">Bookings</th>
+                        <th className="text-right py-2 px-4 font-medium text-emerald-700">Gross</th>
+                        <th className="text-right py-2 px-4 font-medium text-emerald-700">Commission</th>
+                        <th className="text-right py-2 px-4 font-medium text-emerald-700">Net</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {revenueStats.bySource.map((source) => (
+                        <tr key={source.source} className="border-b border-emerald-50 last:border-0">
+                          <td className="py-2 px-4 text-black">
+                            {source.source}
+                            {source.commissionRate > 0 && (
+                              <span className="text-[11px] text-black/40 ml-1">({source.commissionRate}%)</span>
+                            )}
+                          </td>
+                          <td className="py-2 px-4 text-right text-black/60">{source.count}</td>
+                          <td className="py-2 px-4 text-right text-black">€{source.gross.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+                          <td className="py-2 px-4 text-right text-red-600">
+                            {source.commission > 0 ? `−€${source.commission.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"}
+                          </td>
+                          <td className="py-2 px-4 text-right font-medium text-emerald-700">€{source.net.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* 6-Month History */}
+                {revenueStats.history.length > 1 && (
+                  <div className="mt-6">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-emerald-600 mb-3">Last 6 Months</p>
+                    <div className="grid grid-cols-6 gap-2">
+                      {revenueStats.history.map((month, i) => (
+                        <div 
+                          key={month.month} 
+                          className={`text-center p-3 rounded-lg ${i === 0 ? 'bg-emerald-100 border border-emerald-200' : 'bg-white border border-emerald-100'}`}
+                        >
+                          <p className="text-[10px] uppercase tracking-[0.05em] text-emerald-600 mb-1">{month.label}</p>
+                          <p className={`text-[16px] font-serif ${i === 0 ? 'text-emerald-800' : 'text-black/70'}`}>
+                            €{(month.net / 1000).toFixed(1)}k
+                          </p>
+                          <p className="text-[10px] text-emerald-600">{month.bookingCount} bookings</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Primary Tools */}
             <div className="space-y-3 mb-14">
