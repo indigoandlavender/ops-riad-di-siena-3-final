@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
         notes: g.notes || "",
         phone: normalizePhone(g.phone),
         email: g.email || "",
+        city_tax_paid: g.city_tax_paid || "",
       }))
       .sort((a, b) => {
         // Sort by arrival time if available
@@ -97,6 +98,7 @@ export async function GET(request: NextRequest) {
         notes: g.notes || "",
         phone: normalizePhone(g.phone),
         email: g.email || "",
+        city_tax_paid: g.city_tax_paid || "",
       }));
 
     return NextResponse.json({

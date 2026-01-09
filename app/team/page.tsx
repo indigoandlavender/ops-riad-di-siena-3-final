@@ -19,12 +19,36 @@ interface GuestSummary {
   notes: string;
   phone: string;
   email: string;
+  city_tax_paid: string;
 }
 
 interface TodayData {
   date: string;
   checkIns: GuestSummary[];
   checkOuts: GuestSummary[];
+}
+
+interface TaxStats {
+  date: string;
+  month: string;
+  daily: {
+    total: number;
+    paid: number;
+    unpaid: number;
+    bookings: Array<{
+      booking_id: string;
+      guest_name: string;
+      tax_amount: number;
+      paid: boolean;
+      paid_at: string;
+    }>;
+  };
+  monthly: {
+    total: number;
+    paid: number;
+    unpaid: number;
+    bookingCount: number;
+  };
 }
 
 // Channel badge with proper colors and labels
@@ -93,6 +117,8 @@ interface GuestCardProps {
   sendArrivalWhatsApp: (guest: GuestSummary) => void;
   sendDirectionsWhatsApp: (guest: GuestSummary) => void;
   onOpenPoliceForm: (guest: GuestSummary) => void;
+  markTaxPaid: (guest: GuestSummary) => void;
+  markingTaxId: string | null;
 }
 
 function GuestCard({
@@ -115,9 +141,13 @@ function GuestCard({
   sendArrivalWhatsApp,
   sendDirectionsWhatsApp,
   onOpenPoliceForm,
+  markTaxPaid,
+  markingTaxId,
 }: GuestCardProps) {
   const cityTax = calculateCityTax(guest);
   const isEditing = editingNotesId === guest.booking_id;
+  const isMarkingTax = markingTaxId === guest.booking_id;
+  const taxPaid = !!guest.city_tax_paid;
 
   return (
     <div className="bg-white border border-black/[0.06] rounded-lg p-4 space-y-3">
@@ -271,10 +301,33 @@ function GuestCard({
         {cityTax !== null && (
           <div>
             <p className="text-[10px] uppercase tracking-wide text-black/40">City Tax</p>
-            <p className="text-[14px] font-medium">€{cityTax.toFixed(2)}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[14px] font-medium">€{cityTax.toFixed(2)}</p>
+              {taxPaid && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
+                  PAID
+                </span>
+              )}
+            </div>
           </div>
         )}
       </div>
+
+      {/* City Tax Mark as Paid - only for Booking.com guests with unpaid tax */}
+      {cityTax !== null && !taxPaid && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => markTaxPaid(guest)}
+            disabled={isMarkingTax}
+            className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 font-medium transition-colors disabled:opacity-50"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {isMarkingTax ? "Saving..." : "Mark Tax Paid"}
+          </button>
+        </div>
+      )}
 
       {/* Dates row */}
       <div className="flex gap-4 text-[12px] text-black/50">
@@ -425,6 +478,10 @@ export default function TeamPage() {
 
   // Police Registration Form
   const [policeFormGuest, setPoliceFormGuest] = useState<GuestSummary | null>(null);
+
+  // City Tax tracking
+  const [taxStats, setTaxStats] = useState<TaxStats | null>(null);
+  const [markingTaxId, setMarkingTaxId] = useState<string | null>(null);
 
   // Generate arrival link
   const generateArrivalLink = useCallback((guest: GuestSummary): string => {
@@ -596,9 +653,44 @@ See you soon!
     }
   }, []);
 
+  // Fetch tax stats for dashboard
+  const fetchTaxStats = useCallback(async (date: string) => {
+    try {
+      const res = await fetch(`/api/tax/stats?date=${date}`);
+      const json = await res.json();
+      if (!json.error) {
+        setTaxStats(json);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Mark city tax as paid
+  const markTaxPaid = useCallback(async (guest: GuestSummary) => {
+    setMarkingTaxId(guest.booking_id);
+    try {
+      const res = await fetch("/api/tax/mark-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ booking_id: guest.booking_id }),
+      });
+      if (res.ok) {
+        // Refresh data
+        fetchData(selectedDate);
+        fetchTaxStats(selectedDate);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setMarkingTaxId(null);
+    }
+  }, [selectedDate, fetchData, fetchTaxStats]);
+
   useEffect(() => {
     fetchData(selectedDate);
-  }, [selectedDate, fetchData]);
+    fetchTaxStats(selectedDate);
+  }, [selectedDate, fetchData, fetchTaxStats]);
 
   // Search functionality
   const handleSearch = useCallback(async (query: string) => {
@@ -1035,6 +1127,8 @@ See you soon!
                   sendArrivalWhatsApp={sendArrivalWhatsApp}
                   sendDirectionsWhatsApp={sendDirectionsWhatsApp}
                   onOpenPoliceForm={setPoliceFormGuest}
+                  markTaxPaid={markTaxPaid}
+                  markingTaxId={markingTaxId}
                 />
               ))}
             </div>
@@ -1079,6 +1173,8 @@ See you soon!
                   sendArrivalWhatsApp={sendArrivalWhatsApp}
                   sendDirectionsWhatsApp={sendDirectionsWhatsApp}
                   onOpenPoliceForm={setPoliceFormGuest}
+                  markTaxPaid={markTaxPaid}
+                  markingTaxId={markingTaxId}
                 />
               ))}
             </div>
@@ -1088,9 +1184,31 @@ See you soon!
 
       {/* Footer */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-black/[0.06] px-6 py-3">
-        <p className="text-[11px] text-black/30 text-center tracking-wide">
-          Tap date to open calendar • Use arrows to navigate
-        </p>
+        <div className="flex items-center justify-between max-w-lg mx-auto">
+          <p className="text-[11px] text-black/30 tracking-wide">
+            Tap date to open calendar
+          </p>
+          {/* City Tax Dashboard Button */}
+          {taxStats && (
+            <button
+              onClick={() => {/* Could open a detailed modal in future */}}
+              className="flex items-center gap-3 px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-200"
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-wide text-amber-600">Today</span>
+                <span className="text-[13px] font-medium text-amber-700">€{taxStats.daily.total.toFixed(0)}</span>
+                {taxStats.daily.unpaid > 0 && (
+                  <span className="text-[10px] text-amber-500">({taxStats.daily.unpaidCount} pending)</span>
+                )}
+              </div>
+              <div className="w-px h-4 bg-amber-200" />
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-wide text-amber-600">Month</span>
+                <span className="text-[13px] font-medium text-amber-700">€{taxStats.monthly.total.toFixed(0)}</span>
+              </div>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Police Registration Form Modal */}
