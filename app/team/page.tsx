@@ -1184,31 +1184,27 @@ See you soon!
         </section>
       </div>
 
-      {/* Footer */}
+      {/* Footer - City Tax Summary */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-black/[0.06] px-6 py-3">
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          <p className="text-[11px] text-black/30 tracking-wide">
-            Tap date to open calendar
-          </p>
-          {/* City Tax Dashboard Button */}
+        <div className="max-w-lg mx-auto">
           {taxStats && (
-            <button
-              onClick={() => {/* Could open a detailed modal in future */}}
-              className="flex items-center gap-3 px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-200"
-            >
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wide text-amber-600">Today</span>
-                <span className="text-[13px] font-medium text-amber-700">€{taxStats.daily.total.toFixed(0)}</span>
-                {taxStats.daily.unpaid > 0 && (
-                  <span className="text-[10px] text-amber-500">({taxStats.daily.bookings.filter(b => !b.paid).length} pending)</span>
-                )}
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-wide text-black/40 font-medium">City Tax</span>
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <p className="text-[10px] uppercase tracking-wide text-black/40">Monthly</p>
+                  <p className="text-[15px] font-medium text-black/80">€{taxStats.monthly.total.toFixed(0)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] uppercase tracking-wide text-emerald-600">Paid</p>
+                  <p className="text-[15px] font-medium text-emerald-600">€{taxStats.monthly.paid.toFixed(0)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] uppercase tracking-wide text-amber-600">Balance</p>
+                  <p className="text-[15px] font-medium text-amber-600">€{taxStats.monthly.unpaid.toFixed(0)}</p>
+                </div>
               </div>
-              <div className="w-px h-4 bg-amber-200" />
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wide text-amber-600">Month</span>
-                <span className="text-[13px] font-medium text-amber-700">€{taxStats.monthly.total.toFixed(0)}</span>
-              </div>
-            </button>
+            </div>
           )}
         </div>
       </div>
