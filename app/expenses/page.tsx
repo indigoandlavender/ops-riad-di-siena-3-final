@@ -2,6 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+// Categories that are sensitive (excluded from operations report)
+const SENSITIVE_CATEGORIES = ["Staff", "Insurance", "Taxes", "Marketing"];
+
+// Google Sheet URL
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/1qBOHt08Y5_2dn1dmBdZjKJQR9ShjacZLdLJvsK787Qo/edit";
 
 interface Expense {
   expense_id: string;
@@ -153,6 +161,132 @@ export default function ExpensesPage() {
     }
   }
 
+  // Generate PDF report
+  function generatePDF(isOperationsReport: boolean) {
+    const doc = new jsPDF();
+    
+    // Filter expenses for operations report (exclude sensitive categories)
+    const reportExpenses = isOperationsReport 
+      ? expenses.filter(e => !SENSITIVE_CATEGORIES.includes(e.category))
+      : expenses;
+    
+    // Apply current filters
+    const finalExpenses = reportExpenses.filter(e => {
+      if (filterMonth && !e.date.startsWith(filterMonth)) return false;
+      if (filterCategory && e.category !== filterCategory) return false;
+      return true;
+    });
+
+    // Sort by date descending
+    finalExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Calculate totals
+    const total = finalExpenses.reduce((sum, e) => sum + e.amount_dh, 0);
+    const byCategory: Record<string, number> = {};
+    finalExpenses.forEach(e => {
+      byCategory[e.category] = (byCategory[e.category] || 0) + e.amount_dh;
+    });
+
+    // Title
+    const reportTitle = isOperationsReport ? "Operations Expense Report" : "Full Expense Report";
+    const dateRange = filterMonth 
+      ? new Date(filterMonth + "-01").toLocaleDateString("en-US", { month: "long", year: "numeric" })
+      : "All Time";
+
+    doc.setFontSize(20);
+    doc.text("Riad di Siena", 14, 20);
+    doc.setFontSize(14);
+    doc.text(reportTitle, 14, 30);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Period: ${dateRange}`, 14, 38);
+    doc.text(`Generated: ${new Date().toLocaleDateString("en-GB")}`, 14, 44);
+
+    // Summary box
+    doc.setDrawColor(200);
+    doc.setFillColor(250, 249, 247);
+    doc.roundedRect(14, 52, 180, 30, 2, 2, "FD");
+    
+    doc.setTextColor(0);
+    doc.setFontSize(12);
+    doc.text("Total Expenses", 20, 62);
+    doc.setFontSize(18);
+    doc.text(`${total.toLocaleString()} DH`, 20, 72);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`${finalExpenses.length} expenses`, 100, 67);
+
+    // Category breakdown
+    let yPos = 95;
+    doc.setFontSize(11);
+    doc.setTextColor(0);
+    doc.text("By Category", 14, yPos);
+    yPos += 8;
+
+    Object.entries(byCategory)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([category, amount]) => {
+        doc.setFontSize(9);
+        doc.setTextColor(80);
+        doc.text(category, 14, yPos);
+        doc.text(`${amount.toLocaleString()} DH`, 80, yPos);
+        yPos += 6;
+      });
+
+    // Expenses table
+    yPos += 10;
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Date", "Description", "Category", "Amount (DH)"]],
+      body: finalExpenses.map(e => [
+        new Date(e.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+        e.description,
+        e.category,
+        e.amount_dh.toLocaleString(),
+      ]),
+      theme: "plain",
+      headStyles: {
+        fillColor: [245, 245, 243],
+        textColor: [60, 60, 60],
+        fontSize: 9,
+        fontStyle: "bold",
+      },
+      bodyStyles: {
+        fontSize: 9,
+        textColor: [40, 40, 40],
+      },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 80 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 30, halign: "right" },
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        doc.internal.pageSize.width / 2,
+        doc.internal.pageSize.height - 10,
+        { align: "center" }
+      );
+    }
+
+    // Save
+    const filename = isOperationsReport 
+      ? `riad-operations-expenses-${filterMonth || "all"}.pdf`
+      : `riad-expenses-${filterMonth || "all"}.pdf`;
+    doc.save(filename);
+  }
+
   // Filter expenses
   const filteredExpenses = expenses.filter(e => {
     if (filterMonth && !e.date.startsWith(filterMonth)) return false;
@@ -186,12 +320,53 @@ export default function ExpensesPage() {
               </Link>
               <h1 className="text-[28px] font-serif text-stone-800 mt-1">Expenses</h1>
             </div>
-            <div className="text-right">
-              <p className="text-[32px] font-serif text-stone-700">
-                {summary?.total.toLocaleString()} <span className="text-[18px] text-stone-400">DH</span>
-              </p>
-              <p className="text-[11px] uppercase tracking-[0.08em] text-stone-500">{summary?.count} expenses</p>
+            
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3">
+              <a
+                href={`${SHEET_URL}#gid=expenses`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 text-[12px] text-stone-500 hover:text-stone-700 border border-stone-200 rounded hover:border-stone-300 transition-colors"
+              >
+                View Sheet →
+              </a>
+              
+              <div className="relative group">
+                <button className="px-3 py-1.5 text-[12px] text-stone-600 bg-stone-100 hover:bg-stone-200 rounded transition-colors flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export PDF
+                </button>
+                
+                {/* Dropdown */}
+                <div className="absolute right-0 mt-1 w-48 bg-white border border-stone-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                  <button
+                    onClick={() => generatePDF(false)}
+                    className="w-full text-left px-4 py-2.5 text-[13px] text-stone-700 hover:bg-stone-50 border-b border-stone-100"
+                  >
+                    <span className="font-medium">Full Report</span>
+                    <span className="block text-[11px] text-stone-400 mt-0.5">All categories (for you)</span>
+                  </button>
+                  <button
+                    onClick={() => generatePDF(true)}
+                    className="w-full text-left px-4 py-2.5 text-[13px] text-stone-700 hover:bg-stone-50"
+                  >
+                    <span className="font-medium">Operations Report</span>
+                    <span className="block text-[11px] text-stone-400 mt-0.5">For Zahra & Mouad</span>
+                  </button>
+                </div>
+              </div>
             </div>
+          </div>
+          
+          {/* Total display */}
+          <div className="flex items-center justify-between mt-4 pt-4 border-t border-stone-100">
+            <p className="text-[11px] uppercase tracking-[0.08em] text-stone-500">{summary?.count} expenses</p>
+            <p className="text-[24px] font-serif text-stone-700">
+              {summary?.total.toLocaleString()} <span className="text-[14px] text-stone-400">DH</span>
+            </p>
           </div>
         </div>
       </header>
