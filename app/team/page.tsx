@@ -303,31 +303,26 @@ function GuestCard({
             <p className="text-[10px] uppercase tracking-wide text-black/40">City Tax</p>
             <div className="flex items-center gap-2">
               <p className="text-[14px] font-medium">€{cityTax.toFixed(2)}</p>
-              {taxPaid && (
+              {taxPaid ? (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
                   PAID
                 </span>
+              ) : (
+                <button
+                  onClick={() => markTaxPaid(guest)}
+                  disabled={isMarkingTax}
+                  className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 font-medium transition-colors disabled:opacity-50"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {isMarkingTax ? "..." : "Mark Paid"}
+                </button>
               )}
             </div>
           </div>
         )}
       </div>
-
-      {/* City Tax Mark as Paid - only for Booking.com guests with unpaid tax */}
-      {cityTax !== null && !taxPaid && (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => markTaxPaid(guest)}
-            disabled={isMarkingTax}
-            className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 font-medium transition-colors disabled:opacity-50"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            {isMarkingTax ? "Saving..." : "Mark Tax Paid"}
-          </button>
-        </div>
-      )}
 
       {/* Dates row */}
       <div className="flex gap-4 text-[12px] text-black/50">
