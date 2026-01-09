@@ -325,6 +325,12 @@ export default function ExpensesPage() {
             
             {/* Action Buttons */}
             <div className="flex items-center gap-3">
+              <Link
+                href="/petty-cash"
+                className="px-3 py-1.5 text-[12px] text-stone-500 hover:text-stone-700 border border-stone-200 rounded hover:border-stone-300 transition-colors"
+              >
+                Petty Cash
+              </Link>
               <a
                 href={`${SHEET_URL}#gid=expenses`}
                 target="_blank"

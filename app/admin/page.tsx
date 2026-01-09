@@ -164,7 +164,13 @@ export default function AdminDashboard() {
             <Link href="/team" className="text-[13px] text-black/50 hover:text-black transition-colors">
               Team
             </Link>
-<a
+            <Link href="/expenses" className="text-[13px] text-black/50 hover:text-black transition-colors">
+              Expenses
+            </Link>
+            <Link href="/petty-cash" className="text-[13px] text-black/50 hover:text-black transition-colors">
+              Petty Cash
+            </Link>
+            <a
               href="https://riaddisiena.com"
               target="_blank"
               rel="noopener noreferrer"
