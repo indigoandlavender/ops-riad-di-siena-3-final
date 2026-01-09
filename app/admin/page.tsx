@@ -164,10 +164,7 @@ export default function AdminDashboard() {
             <Link href="/team" className="text-[13px] text-black/50 hover:text-black transition-colors">
               Team
             </Link>
-            <Link href="/insights" className="text-[13px] text-black/50 hover:text-black transition-colors">
-              Insights
-            </Link>
-            <a
+<a
               href="https://riaddisiena.com"
               target="_blank"
               rel="noopener noreferrer"
