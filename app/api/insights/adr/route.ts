@@ -25,7 +25,7 @@ interface MonthlyADR {
 export async function GET() {
   try {
     const rows = await getSheetData("Master_Guests");
-    const bookings = rowsToObjects(rows) as BookingRow[];
+    const bookings = rowsToObjects(rows) as unknown as BookingRow[];
 
     // Group bookings by month (based on check-in date)
     const monthlyData: Record<string, { revenue: number; nights: number; count: number }> = {};
