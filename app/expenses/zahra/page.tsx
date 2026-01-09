@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 
 const STAFF_CATEGORIES = [
+  "Breakfast Box",
   "Client Gifts",
   "Fruits & Vegetables",
   "Groceries",

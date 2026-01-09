@@ -33,6 +33,7 @@ interface Summary {
 
 const CATEGORIES = [
   // Zahra's categories
+  "Breakfast Box",
   "Client Gifts",
   "Fruits & Vegetables",
   "Groceries",
