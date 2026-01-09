@@ -160,14 +160,22 @@ export default function AdminDashboard() {
             <p className="text-[11px] uppercase tracking-[0.08em] text-black/40 mb-1">Riad di Siena</p>
             <h1 className="font-serif text-[22px] text-black">Admin Dashboard</h1>
           </div>
-          <a
-            href="https://riaddisiena.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[13px] text-black/50 hover:text-black transition-colors"
-          >
-            View Site →
-          </a>
+          <nav className="flex items-center gap-6">
+            <Link href="/team" className="text-[13px] text-black/50 hover:text-black transition-colors">
+              Team
+            </Link>
+            <Link href="/insights" className="text-[13px] text-black/50 hover:text-black transition-colors">
+              Insights
+            </Link>
+            <a
+              href="https://riaddisiena.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[13px] text-black/50 hover:text-black transition-colors"
+            >
+              View Site →
+            </a>
+          </nav>
         </div>
       </header>
 

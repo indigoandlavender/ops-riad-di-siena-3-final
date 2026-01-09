@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 import PasswordGate from "@/components/PasswordGate";
 import PoliceRegistrationForm from "@/components/PoliceRegistrationForm";
@@ -861,7 +862,13 @@ See you soon!
       {/* Header */}
       <div className="bg-white border-b border-black/[0.06] px-6 py-5">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[11px] uppercase tracking-[0.08em] text-black/35">Riad di Siena</p>
+          <div className="flex items-center gap-4">
+            <p className="text-[11px] uppercase tracking-[0.08em] text-black/35">Riad di Siena</p>
+            <nav className="flex items-center gap-4 ml-4 pl-4 border-l border-black/10">
+              <Link href="/admin" className="text-[11px] text-black/40 hover:text-black transition-colors">Admin</Link>
+              <Link href="/insights" className="text-[11px] text-black/40 hover:text-black transition-colors">Insights</Link>
+            </nav>
+          </div>
           
           {/* Search button */}
           <div className="relative" ref={searchRef}>
