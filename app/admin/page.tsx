@@ -57,6 +57,9 @@ interface RevenueStats {
     gross: number;
     commission: number;
     net: number;
+    airbnbNet: number;
+    kathleenShare: number;
+    jacquelineNet: number;
     bookingCount: number;
   };
   bySource: Array<{
@@ -258,23 +261,28 @@ export default function AdminDashboard() {
                 </div>
                 
                 {/* Totals Row */}
-                <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-4 gap-4 mb-6">
                   <div className="bg-white rounded-lg p-4 border border-emerald-100">
                     <p className="text-[11px] uppercase tracking-[0.08em] text-emerald-600 mb-1">Gross Revenue</p>
-                    <p className="text-[28px] font-serif text-emerald-800">€{revenueStats.totals.gross.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                    <p className="text-[12px] text-emerald-600 mt-1">{revenueStats.totals.bookingCount} bookings</p>
+                    <p className="text-[24px] font-serif text-emerald-800">€{revenueStats.totals.gross.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                    <p className="text-[11px] text-emerald-600 mt-1">{revenueStats.totals.bookingCount} bookings</p>
                   </div>
                   <div className="bg-white rounded-lg p-4 border border-red-100">
-                    <p className="text-[11px] uppercase tracking-[0.08em] text-red-500 mb-1">Commission</p>
-                    <p className="text-[28px] font-serif text-red-600">−€{revenueStats.totals.commission.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                    <p className="text-[12px] text-red-500 mt-1">
-                      {revenueStats.totals.gross > 0 ? ((revenueStats.totals.commission / revenueStats.totals.gross) * 100).toFixed(1) : 0}% avg
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-red-500 mb-1">Platform Fees</p>
+                    <p className="text-[24px] font-serif text-red-600">−€{revenueStats.totals.commission.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                    <p className="text-[11px] text-red-500 mt-1">Airbnb + Booking.com</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border border-purple-100">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-purple-500 mb-1">Kathleen (40% Airbnb)</p>
+                    <p className="text-[24px] font-serif text-purple-600">−€{revenueStats.totals.kathleenShare.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                    <p className="text-[11px] text-purple-500 mt-1">
+                      {revenueStats.totals.airbnbNet > 0 ? `from €${revenueStats.totals.airbnbNet.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Airbnb net` : "no Airbnb bookings"}
                     </p>
                   </div>
                   <div className="bg-emerald-100 rounded-lg p-4 border border-emerald-200">
-                    <p className="text-[11px] uppercase tracking-[0.08em] text-emerald-700 mb-1">Net Revenue</p>
-                    <p className="text-[28px] font-serif text-emerald-800">€{revenueStats.totals.net.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                    <p className="text-[12px] text-emerald-700 mt-1">after fees</p>
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-emerald-700 mb-1">Your Net</p>
+                    <p className="text-[24px] font-serif text-emerald-800">€{revenueStats.totals.jacquelineNet.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                    <p className="text-[11px] text-emerald-700 mt-1">after all deductions</p>
                   </div>
                 </div>
 

@@ -60,6 +60,7 @@ export async function GET(request: Request) {
     let totalGross = 0;
     let totalCommission = 0;
     let totalNet = 0;
+    let totalAirbnbNet = 0; // Track Airbnb net for Kathleen's share
     
     monthlyBookings.forEach((booking: any) => {
       const source = booking.source || "Unknown";
@@ -80,7 +81,16 @@ export async function GET(request: Request) {
       totalGross += gross;
       totalCommission += commission;
       totalNet += net;
+      
+      // Track Airbnb revenue for Kathleen's 40% share
+      if (source.toLowerCase().includes("airbnb")) {
+        totalAirbnbNet += net;
+      }
     });
+    
+    // Kathleen gets 40% of Airbnb net revenue
+    const kathleenShare = totalAirbnbNet * 0.4;
+    const jacquelineNet = totalNet - kathleenShare;
     
     // Get previous months for comparison (last 6 months)
     const monthlyHistory: Array<{
@@ -133,6 +143,9 @@ export async function GET(request: Request) {
         gross: totalGross,
         commission: totalCommission,
         net: totalNet,
+        airbnbNet: totalAirbnbNet,
+        kathleenShare: kathleenShare,
+        jacquelineNet: jacquelineNet,
         bookingCount: monthlyBookings.length,
       },
       bySource: Object.entries(bySource).map(([source, data]) => ({
