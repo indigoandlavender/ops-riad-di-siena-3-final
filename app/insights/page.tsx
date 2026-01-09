@@ -40,12 +40,39 @@ interface ChecklistItem {
   resolved_date: string;
 }
 
+interface ADRStats {
+  monthly: Array<{
+    month: string;
+    adr: number;
+    totalRevenue: number;
+    totalNights: number;
+    bookingCount: number;
+  }>;
+  yearly: Array<{
+    year: string;
+    adr: number;
+    totalNights: number;
+  }>;
+  overall: {
+    adr: number;
+    totalRevenue: number;
+    totalNights: number;
+    bookingCount: number;
+  };
+  trend: {
+    recent6MonthsADR: number;
+    previous6MonthsADR: number;
+    percentChange: number;
+  };
+}
+
 export default function InsightsPage() {
   const [stats, setStats] = useState<ReviewStats | null>(null);
+  const [adrStats, setAdrStats] = useState<ADRStats | null>(null);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "issues" | "trends" | "correlation">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "issues" | "trends" | "correlation" | "adr">("overview");
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -93,16 +120,19 @@ export default function InsightsPage() {
 
   async function fetchData() {
     try {
-      const [reviewsRes, checklistRes] = await Promise.all([
+      const [reviewsRes, checklistRes, adrRes] = await Promise.all([
         fetch("/api/insights/reviews"),
         fetch("/api/insights/checklist"),
+        fetch("/api/insights/adr"),
       ]);
       
       const reviewsData = await reviewsRes.json();
       const checklistData = await checklistRes.json();
+      const adrData = await adrRes.json();
       
       setStats(reviewsData);
       setChecklist(checklistData.items || []);
+      setAdrStats(adrData);
     } catch (error) {
       console.error("Error fetching insights:", error);
     } finally {
@@ -251,6 +281,7 @@ export default function InsightsPage() {
               { id: "issues", label: "Issues Checklist" },
               { id: "trends", label: "3-Year Trends" },
               { id: "correlation", label: "Rating vs Occupancy" },
+              { id: "adr", label: "Average Daily Rate" },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -659,6 +690,237 @@ export default function InsightsPage() {
                   drive your occupancy more than review ratings.
                 </p>
               </div>
+            </section>
+          </div>
+        )}
+
+        {/* ADR Tab */}
+        {activeTab === "adr" && adrStats && (
+          <div className="space-y-8">
+            {/* ADR Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-lg border border-stone-200 p-5">
+                <p className="text-[11px] uppercase tracking-[0.1em] text-stone-500 mb-1">Overall ADR</p>
+                <p className="text-[28px] font-serif text-amber-600">€{adrStats.overall.adr.toFixed(0)}</p>
+                <p className="text-[12px] text-stone-500 mt-1">per night</p>
+              </div>
+              <div className="bg-white rounded-lg border border-stone-200 p-5">
+                <p className="text-[11px] uppercase tracking-[0.1em] text-stone-500 mb-1">6-Month Trend</p>
+                <p className={`text-[28px] font-serif ${adrStats.trend.percentChange >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  {adrStats.trend.percentChange >= 0 ? "+" : ""}{adrStats.trend.percentChange.toFixed(1)}%
+                </p>
+                <p className="text-[12px] text-stone-500 mt-1">vs previous 6 months</p>
+              </div>
+              <div className="bg-white rounded-lg border border-stone-200 p-5">
+                <p className="text-[11px] uppercase tracking-[0.1em] text-stone-500 mb-1">Total Nights</p>
+                <p className="text-[28px] font-serif text-stone-700">{adrStats.overall.totalNights.toLocaleString()}</p>
+                <p className="text-[12px] text-stone-500 mt-1">booked</p>
+              </div>
+              <div className="bg-white rounded-lg border border-stone-200 p-5">
+                <p className="text-[11px] uppercase tracking-[0.1em] text-stone-500 mb-1">Total Revenue</p>
+                <p className="text-[28px] font-serif text-stone-700">€{(adrStats.overall.totalRevenue / 1000).toFixed(0)}k</p>
+                <p className="text-[12px] text-stone-500 mt-1">{adrStats.overall.bookingCount} bookings</p>
+              </div>
+            </div>
+
+            {/* Monthly ADR Chart */}
+            <section className="bg-white rounded-lg border border-stone-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-[11px] uppercase tracking-[0.1em] text-stone-500">Monthly Average Daily Rate</h2>
+                <div className="flex items-center gap-4 text-[11px] text-stone-500">
+                  <span className="flex items-center gap-1">
+                    <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+                    ADR (€)
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-3 h-0.5 bg-emerald-500"></span>
+                    Trend Line
+                  </span>
+                </div>
+              </div>
+              
+              {/* Chart */}
+              <div className="relative h-72">
+                {(() => {
+                  const data = adrStats.monthly.slice(-24); // Last 24 months
+                  if (data.length === 0) return <p className="text-stone-500">No data available</p>;
+                  
+                  const maxADR = Math.max(...data.map(d => d.adr));
+                  const minADR = Math.min(...data.map(d => d.adr));
+                  const range = maxADR - minADR || 1;
+                  const padding = range * 0.1;
+                  const chartMin = Math.max(0, minADR - padding);
+                  const chartMax = maxADR + padding;
+                  const chartRange = chartMax - chartMin;
+                  
+                  // Calculate trend line (simple linear regression)
+                  const n = data.length;
+                  const sumX = data.reduce((sum, _, i) => sum + i, 0);
+                  const sumY = data.reduce((sum, d) => sum + d.adr, 0);
+                  const sumXY = data.reduce((sum, d, i) => sum + i * d.adr, 0);
+                  const sumX2 = data.reduce((sum, _, i) => sum + i * i, 0);
+                  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                  const intercept = (sumY - slope * sumX) / n;
+                  
+                  const trendStart = intercept;
+                  const trendEnd = intercept + slope * (n - 1);
+                  
+                  return (
+                    <svg className="w-full h-full" viewBox={`0 0 ${data.length * 40 + 60} 280`} preserveAspectRatio="none">
+                      {/* Y-axis labels */}
+                      {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                        const value = chartMax - pct * chartRange;
+                        return (
+                          <g key={i}>
+                            <line x1="50" y1={20 + pct * 220} x2={data.length * 40 + 50} y2={20 + pct * 220} stroke="#e7e5e4" strokeWidth="1" />
+                            <text x="45" y={24 + pct * 220} textAnchor="end" className="text-[10px] fill-stone-400">
+                              €{value.toFixed(0)}
+                            </text>
+                          </g>
+                        );
+                      })}
+                      
+                      {/* Bars */}
+                      {data.map((d, i) => {
+                        const height = ((d.adr - chartMin) / chartRange) * 220;
+                        const x = 55 + i * 40;
+                        const y = 240 - height;
+                        return (
+                          <g key={i}>
+                            <rect
+                              x={x}
+                              y={y}
+                              width="30"
+                              height={height}
+                              fill="#f59e0b"
+                              opacity={0.8}
+                              rx="2"
+                            />
+                            {/* X-axis label (show every 3rd month) */}
+                            {i % 3 === 0 && (
+                              <text x={x + 15} y="260" textAnchor="middle" className="text-[9px] fill-stone-400">
+                                {d.month.substring(2, 7)}
+                              </text>
+                            )}
+                            {/* Hover tooltip area */}
+                            <title>
+                              {d.month}: €{d.adr.toFixed(0)}/night ({d.totalNights} nights, {d.bookingCount} bookings)
+                            </title>
+                          </g>
+                        );
+                      })}
+                      
+                      {/* Trend line */}
+                      <line
+                        x1="70"
+                        y1={240 - ((trendStart - chartMin) / chartRange) * 220}
+                        x2={55 + (data.length - 1) * 40 + 15}
+                        y2={240 - ((trendEnd - chartMin) / chartRange) * 220}
+                        stroke="#10b981"
+                        strokeWidth="2"
+                        strokeDasharray="6,3"
+                      />
+                    </svg>
+                  );
+                })()}
+              </div>
+              
+              {/* Trend indicator */}
+              <div className="mt-4 pt-4 border-t border-stone-100 flex items-center gap-2">
+                {adrStats.trend.percentChange >= 0 ? (
+                  <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                  </svg>
+                )}
+                <span className="text-[13px] text-stone-600">
+                  ADR is <strong>{adrStats.trend.percentChange >= 0 ? "increasing" : "decreasing"}</strong> — 
+                  Recent 6 months: <strong>€{adrStats.trend.recent6MonthsADR.toFixed(0)}</strong> vs 
+                  Previous 6 months: <strong>€{adrStats.trend.previous6MonthsADR.toFixed(0)}</strong>
+                </span>
+              </div>
+            </section>
+
+            {/* Yearly ADR Comparison */}
+            <section className="bg-white rounded-lg border border-stone-200 p-6">
+              <h2 className="text-[11px] uppercase tracking-[0.1em] text-stone-500 mb-4">Year-over-Year ADR</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {adrStats.yearly.map((year, idx) => {
+                  const prevYear = adrStats.yearly[idx - 1];
+                  const change = prevYear ? ((year.adr - prevYear.adr) / prevYear.adr) * 100 : null;
+                  return (
+                    <div key={year.year} className="bg-stone-50 rounded-lg p-4">
+                      <p className="text-[13px] font-medium text-stone-700">{year.year}</p>
+                      <p className="text-[24px] font-serif text-amber-600 mt-1">€{year.adr.toFixed(0)}</p>
+                      {change !== null && (
+                        <p className={`text-[12px] mt-1 ${change >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                          {change >= 0 ? "↑" : "↓"} {Math.abs(change).toFixed(1)}% vs {adrStats.yearly[idx - 1].year}
+                        </p>
+                      )}
+                      <p className="text-[11px] text-stone-500 mt-1">{year.totalNights} nights</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Monthly Data Table */}
+            <section className="bg-white rounded-lg border border-stone-200 p-6">
+              <h2 className="text-[11px] uppercase tracking-[0.1em] text-stone-500 mb-4">Monthly Detail (Last 12 Months)</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="border-b border-stone-200 text-stone-500">
+                      <th className="py-2 px-3 text-left font-medium">Month</th>
+                      <th className="py-2 px-3 text-right font-medium">ADR</th>
+                      <th className="py-2 px-3 text-right font-medium">Revenue</th>
+                      <th className="py-2 px-3 text-right font-medium">Nights</th>
+                      <th className="py-2 px-3 text-right font-medium">Bookings</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adrStats.monthly.slice(-12).reverse().map((row, idx) => (
+                      <tr key={idx} className="border-b border-stone-100 hover:bg-stone-50">
+                        <td className="py-2 px-3 text-stone-700">{row.month}</td>
+                        <td className="py-2 px-3 text-right font-medium text-amber-600">€{row.adr.toFixed(0)}</td>
+                        <td className="py-2 px-3 text-right text-stone-700">€{row.totalRevenue.toLocaleString()}</td>
+                        <td className="py-2 px-3 text-right text-stone-700">{row.totalNights}</td>
+                        <td className="py-2 px-3 text-right text-stone-700">{row.bookingCount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            {/* Tips Section */}
+            <section className="bg-amber-50 rounded-lg border border-amber-200 p-6">
+              <h2 className="text-[11px] uppercase tracking-[0.1em] text-amber-700 mb-3">Strategies to Increase ADR</h2>
+              <ul className="text-[13px] text-amber-800 space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-1">•</span>
+                  <span><strong>Seasonal pricing:</strong> Increase rates during peak seasons (March-May, Sept-Nov) and major events.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-1">•</span>
+                  <span><strong>Minimum stay requirements:</strong> Set 2-3 night minimums during high-demand periods.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-1">•</span>
+                  <span><strong>Value-adds over discounts:</strong> Include breakfast, airport transfers, or experiences instead of lowering price.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-1">•</span>
+                  <span><strong>Direct booking incentives:</strong> Offer exclusive perks for direct bookings to reduce OTA fees.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-1">•</span>
+                  <span><strong>Photography refresh:</strong> Update listing photos to justify premium pricing.</span>
+                </li>
+              </ul>
             </section>
           </div>
         )}
