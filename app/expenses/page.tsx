@@ -6,7 +6,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 // Categories that are sensitive (excluded from operations report)
-const SENSITIVE_CATEGORIES = ["Staff", "Insurance", "Taxes", "Marketing"];
+// Categories that only admin sees (excluded from Operations PDF report)
+const SENSITIVE_CATEGORIES = ["Rent", "Electricity", "Water", "Internet"];
 
 // Google Sheet URL
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1qBOHt08Y5_2dn1dmBdZjKJQR9ShjacZLdLJvsK787Qo/edit";
@@ -31,16 +32,32 @@ interface Summary {
 }
 
 const CATEGORIES = [
-  "Utilities",
-  "Maintenance",
+  // Zahra's categories
+  "Client Gifts",
+  "Fruits & Vegetables",
+  "Groceries",
+  "Shower Gel",
+  "Shampoo",
+  "Cleaning Supplies",
+  "Gas",
+  "Tableware",
+  "Cookware",
+  "Laundry Supplies",
+  "Dry Cleaning",
+  "Repairs",
+  // Mouad's categories
+  "Rent",
+  "Plumbing",
+  "Bobker",
   "Supplies",
-  "Staff",
-  "Insurance",
-  "Taxes",
-  "Marketing",
-  "Food & Beverage",
-  "Laundry",
-  "Transportation",
+  "Carpenter",
+  "Internet",
+  "Mason",
+  "Omar",
+  "AC",
+  // Admin-only
+  "Electricity",
+  "Water",
   "Other",
 ];
 

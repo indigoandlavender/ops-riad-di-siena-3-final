@@ -3,11 +3,18 @@
 import { useState, useEffect, useRef } from "react";
 
 const STAFF_CATEGORIES = [
-  "Supplies",
-  "Food & Beverage", 
-  "Laundry",
-  "Transportation",
-  "Maintenance",
+  "Client Gifts",
+  "Fruits & Vegetables",
+  "Groceries",
+  "Shower Gel",
+  "Shampoo",
+  "Cleaning Supplies",
+  "Gas",
+  "Tableware",
+  "Cookware",
+  "Laundry Supplies",
+  "Dry Cleaning",
+  "Repairs",
   "Other",
 ];
 
