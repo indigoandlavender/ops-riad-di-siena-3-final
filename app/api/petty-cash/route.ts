@@ -14,38 +14,60 @@ async function getSheets() {
   return google.sheets({ version: "v4", auth });
 }
 
-// GET - Fetch petty cash advances and calculate balances
+// GET - Fetch petty cash entries and calculate balances
 export async function GET() {
   try {
     const sheets = await getSheets();
     
-    // Fetch advances from Petty_Cash tab
-    let advances: Array<{
+    // Fetch entries from Petty_Cash tab
+    // Columns: date | person | type | amount | notes
+    let entries: Array<{
       id: string;
       date: string;
       person: string;
+      type: "advance" | "return";
       amount: number;
       notes: string;
     }> = [];
     
     try {
-      const advanceRes = await sheets.spreadsheets.values.get({
+      const res = await sheets.spreadsheets.values.get({
         spreadsheetId: OPS_SHEET_ID,
         range: "Petty_Cash!A2:E1000",
       });
       
-      const rows = advanceRes.data.values || [];
-      advances = rows
+      const rows = res.data.values || [];
+      entries = rows
         .filter(row => row[0])
         .map((row, idx) => ({
           id: `PC-${idx}`,
           date: row[0] || "",
           person: (row[1] || "").toLowerCase(),
-          amount: parseFloat(row[2]) || 0,
-          notes: row[3] || "",
+          type: (row[2] || "advance").toLowerCase() as "advance" | "return",
+          amount: parseFloat(row[3]) || 0,
+          notes: row[4] || "",
         }));
     } catch (e) {
       console.log("Petty_Cash tab not found");
+    }
+
+    // Fetch notes from Petty_Cash_Notes tab
+    let notes: Array<{ id: string; date: string; note: string }> = [];
+    try {
+      const notesRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: OPS_SHEET_ID,
+        range: "Petty_Cash_Notes!A2:B1000",
+      });
+      const rows = notesRes.data.values || [];
+      notes = rows
+        .filter(row => row[0])
+        .map((row, idx) => ({
+          id: `NOTE-${idx}`,
+          date: row[0] || "",
+          note: row[1] || "",
+        }));
+    } catch (e) {
+      console.log("Petty_Cash_Notes tab not found - will be created on first note");
     }
 
     // Fetch expenses for Zahra
@@ -78,27 +100,37 @@ export async function GET() {
       console.log("Expenses_Mouad tab not found");
     }
 
-    // Calculate totals
-    const zahraAdvances = advances
-      .filter(a => a.person === "zahra")
-      .reduce((sum, a) => sum + a.amount, 0);
+    // Calculate totals for Zahra
+    const zahraAdvances = entries
+      .filter(e => e.person === "zahra" && e.type === "advance")
+      .reduce((sum, e) => sum + e.amount, 0);
+    const zahraReturns = entries
+      .filter(e => e.person === "zahra" && e.type === "return")
+      .reduce((sum, e) => sum + e.amount, 0);
     
-    const mouadAdvances = advances
-      .filter(a => a.person === "mouad")
-      .reduce((sum, a) => sum + a.amount, 0);
+    // Calculate totals for Mouad
+    const mouadAdvances = entries
+      .filter(e => e.person === "mouad" && e.type === "advance")
+      .reduce((sum, e) => sum + e.amount, 0);
+    const mouadReturns = entries
+      .filter(e => e.person === "mouad" && e.type === "return")
+      .reduce((sum, e) => sum + e.amount, 0);
 
     return NextResponse.json({
-      advances,
+      entries,
+      notes,
       balances: {
         zahra: {
           given: zahraAdvances,
+          returned: zahraReturns,
           spent: zahraSpent,
-          balance: zahraAdvances - zahraSpent,
+          balance: zahraAdvances - zahraReturns - zahraSpent,
         },
         mouad: {
           given: mouadAdvances,
+          returned: mouadReturns,
           spent: mouadSpent,
-          balance: mouadAdvances - mouadSpent,
+          balance: mouadAdvances - mouadReturns - mouadSpent,
         },
       },
     });
@@ -108,13 +140,37 @@ export async function GET() {
   }
 }
 
-// POST - Add new advance
+// POST - Add new advance, return, or note
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { date, person, amount, notes } = body;
+    const sheets = await getSheets();
 
-    if (!date || !person || !amount) {
+    // Handle note submission
+    if (body.action === "add_note") {
+      const { note } = body;
+      if (!note) {
+        return NextResponse.json({ error: "Note content required" }, { status: 400 });
+      }
+
+      const today = new Date().toISOString().split("T")[0];
+
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: OPS_SHEET_ID,
+        range: "Petty_Cash_Notes!A:B",
+        valueInputOption: "USER_ENTERED",
+        requestBody: {
+          values: [[today, note]],
+        },
+      });
+
+      return NextResponse.json({ success: true });
+    }
+
+    // Handle transaction submission
+    const { date, person, type, amount, notes } = body;
+
+    if (!date || !person || !type || !amount) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -122,16 +178,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid person" }, { status: 400 });
     }
 
-    const sheets = await getSheets();
+    if (!["advance", "return"].includes(type.toLowerCase())) {
+      return NextResponse.json({ error: "Invalid type" }, { status: 400 });
+    }
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: OPS_SHEET_ID,
-      range: "Petty_Cash!A:D",
+      range: "Petty_Cash!A:E",
       valueInputOption: "USER_ENTERED",
       requestBody: {
         values: [[
           date,
           person.toLowerCase(),
+          type.toLowerCase(),
           amount,
           notes || "",
         ]],
@@ -140,7 +199,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error adding advance:", error);
-    return NextResponse.json({ error: "Failed to add advance" }, { status: 500 });
+    console.error("Error adding entry:", error);
+    return NextResponse.json({ error: "Failed to add entry" }, { status: 500 });
   }
 }
