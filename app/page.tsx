@@ -595,7 +595,10 @@ export default function HomePage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setImportError(data.error || "Upload failed");
+        const errorMsg = data.details
+          ? `${data.error}: ${data.details}`
+          : (data.error || "Upload failed");
+        setImportError(errorMsg);
         return;
       }
 

@@ -178,16 +178,38 @@ function parseCSV(text: string): { headers: string[], rows: Record<string, strin
 }
 
 function parseExcelFile(buffer: ArrayBuffer): { headers: string[], rows: Record<string, string>[] } {
-  const workbook = XLSX.read(buffer, { type: "array" });
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const data = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, {
-    raw: false,
-    defval: "",
-  });
-  
-  const headers = data.length > 0 ? Object.keys(data[0]) : [];
-  return { headers, rows: data };
+  try {
+    // Support both .xls (BIFF) and .xlsx (OpenXML) formats
+    const workbook = XLSX.read(buffer, {
+      type: "array",
+      cellDates: true,  // Parse dates properly
+      cellNF: false,    // Don't need number formats
+      cellText: true,   // Generate text representation
+    });
+
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      throw new Error("No sheets found in Excel file");
+    }
+
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+
+    if (!sheet) {
+      throw new Error(`Sheet "${sheetName}" not found`);
+    }
+
+    const data = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, {
+      raw: false,
+      defval: "",
+      dateNF: "YYYY-MM-DD", // Format dates consistently
+    });
+
+    const headers = data.length > 0 ? Object.keys(data[0]) : [];
+    return { headers, rows: data };
+  } catch (err) {
+    console.error("Excel parse error:", err);
+    throw new Error(`Failed to parse Excel file: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 function extractArrivalTime(remarks: string): string {
