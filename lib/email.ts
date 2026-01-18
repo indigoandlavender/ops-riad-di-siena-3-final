@@ -1,8 +1,22 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-// Gmail account for sending emails
-const GMAIL_USER = "happy@riaddisiena.com";
+// Lazy initialization to avoid build-time errors
+let resendClient: Resend | null = null;
+
+function getResend(): Resend {
+  if (!resendClient) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error("RESEND_API_KEY environment variable is not set");
+    }
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resendClient;
+}
+
+// Admin email for notifications
 const ADMIN_EMAIL = "happy@riaddisiena.com";
+// Use Resend's default domain (or verify your domain in Resend dashboard for custom sender)
+const FROM_EMAIL = "Riad di Siena <onboarding@resend.dev>";
 
 interface BookingEmailData {
   bookingId: string;
@@ -30,24 +44,10 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function getTransporter() {
-  if (!process.env.GMAIL_APP_PASSWORD) {
-    throw new Error("GMAIL_APP_PASSWORD environment variable is not set");
-  }
-
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
-    },
-  });
-}
-
 // Send notification to admin when payment is received
 export async function sendAdminPaymentNotification(data: BookingEmailData): Promise<{ success: boolean; error?: string }> {
-  if (!process.env.GMAIL_APP_PASSWORD) {
-    console.error("Missing GMAIL_APP_PASSWORD");
+  if (!process.env.RESEND_API_KEY) {
+    console.error("Missing RESEND_API_KEY");
     return { success: false, error: "Email service not configured" };
   }
 
@@ -55,10 +55,8 @@ export async function sendAdminPaymentNotification(data: BookingEmailData): Prom
   const amountStr = data.amount ? `€${data.amount.toFixed(2)}` : "N/A";
 
   try {
-    const transporter = getTransporter();
-
-    await transporter.sendMail({
-      from: `"Riad di Siena" <${GMAIL_USER}>`,
+    await getResend().emails.send({
+      from: FROM_EMAIL,
       to: ADMIN_EMAIL,
       subject: `Payment Received: ${paymentTypeLabel} - ${data.guestName}`,
       html: `
@@ -120,8 +118,8 @@ export async function sendAdminPaymentNotification(data: BookingEmailData): Prom
 
 // Send confirmation email to guest
 export async function sendGuestPaymentConfirmation(data: BookingEmailData): Promise<{ success: boolean; error?: string }> {
-  if (!process.env.GMAIL_APP_PASSWORD) {
-    console.error("Missing GMAIL_APP_PASSWORD");
+  if (!process.env.RESEND_API_KEY) {
+    console.error("Missing RESEND_API_KEY");
     return { success: false, error: "Email service not configured" };
   }
 
@@ -134,10 +132,8 @@ export async function sendGuestPaymentConfirmation(data: BookingEmailData): Prom
   const amountStr = data.amount ? `€${data.amount.toFixed(2)}` : "";
 
   try {
-    const transporter = getTransporter();
-
-    await transporter.sendMail({
-      from: `"Riad di Siena" <${GMAIL_USER}>`,
+    await getResend().emails.send({
+      from: FROM_EMAIL,
       to: data.guestEmail,
       subject: `Payment Confirmed - Riad di Siena`,
       html: `

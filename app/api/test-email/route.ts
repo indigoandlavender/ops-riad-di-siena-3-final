@@ -1,40 +1,32 @@
 import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 export async function POST() {
-  if (!process.env.GMAIL_APP_PASSWORD) {
+  if (!process.env.RESEND_API_KEY) {
     return NextResponse.json(
-      { error: "GMAIL_APP_PASSWORD not configured" },
+      { error: "RESEND_API_KEY not configured" },
       { status: 500 }
     );
   }
 
-  const GMAIL_USER = "happy@riaddisiena.com";
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  // Test data
+  const testData = {
+    guestName: "John Smith",
+    guestEmail: "john.smith@example.com",
+    whatsapp: "+1 555 123 4567",
+    checkIn: "Sat, Jan 25, 2026",
+    checkOut: "Tue, Jan 28, 2026",
+    nights: 3,
+    guests: 2,
+    amount: "€7.50",
+    paymentType: "City Tax",
+  };
 
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    });
-
-    // Test data
-    const testData = {
-      guestName: "John Smith",
-      guestEmail: "john.smith@example.com",
-      whatsapp: "+1 555 123 4567",
-      checkIn: "Sat, Jan 25, 2026",
-      checkOut: "Tue, Jan 28, 2026",
-      nights: 3,
-      guests: 2,
-      amount: "€7.50",
-      paymentType: "City Tax",
-    };
-
-    await transporter.sendMail({
-      from: `"Riad di Siena" <${GMAIL_USER}>`,
+    await resend.emails.send({
+      from: "Riad di Siena <onboarding@resend.dev>",
       to: "happy@indigoandlavender.love",
       subject: `Payment Received: ${testData.paymentType} - ${testData.guestName}`,
       html: `
