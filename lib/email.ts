@@ -139,14 +139,13 @@ export async function sendGuestPaymentConfirmation(data: BookingEmailData): Prom
     return { success: false, error: "No guest email" };
   }
 
-  const paymentTypeLabel = data.paymentType === "city_tax" ? "City Tax" : "Booking";
-  const amountStr = data.amount ? `€${data.amount.toFixed(2)}` : "";
+  const totalPaidStr = data.totalPaid ? `€${data.totalPaid.toFixed(2)}` : "";
 
   try {
     await getResend().emails.send({
       from: FROM_EMAIL,
       to: data.guestEmail,
-      subject: `Payment Confirmed - Riad di Siena`,
+      subject: `Booking Confirmed - Riad di Siena`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 32px;">
@@ -158,7 +157,7 @@ export async function sendGuestPaymentConfirmation(data: BookingEmailData): Prom
               <span style="color: #16a34a; font-size: 24px;">✓</span>
             </div>
             <h2 style="color: #166534; margin: 0 0 8px 0; font-size: 20px;">Payment Received</h2>
-            <p style="color: #15803d; margin: 0; font-size: 14px;">Thank you for your ${paymentTypeLabel.toLowerCase()} payment${amountStr ? ` of ${amountStr}` : ""}.</p>
+            <p style="color: #15803d; margin: 0; font-size: 14px;">Thank you for your payment${totalPaidStr ? ` of ${totalPaidStr}` : ""}.</p>
           </div>
 
           <div style="background: #f8f5f0; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
@@ -166,6 +165,11 @@ export async function sendGuestPaymentConfirmation(data: BookingEmailData): Prom
 
             <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Guest</p>
             <p style="margin: 0 0 16px 0; color: #1a1a1a; font-size: 16px;">${data.guestName}</p>
+
+            ${data.room ? `
+            <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Room</p>
+            <p style="margin: 0 0 16px 0; color: #1a1a1a; font-size: 16px;">${data.room}</p>
+            ` : ""}
 
             <table style="width: 100%; margin-bottom: 16px;">
               <tr>
