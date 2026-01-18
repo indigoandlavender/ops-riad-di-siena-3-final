@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
+import { sendPaymentEmails } from "@/lib/email";
 
 function formatPrivateKey(key: string): string {
   let cleaned = key.trim();
-  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || 
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) ||
       (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
     cleaned = cleaned.slice(1, -1);
   }
@@ -19,7 +20,7 @@ function getAuth() {
   if (!privateKey && process.env.GOOGLE_PRIVATE_KEY_BASE64) {
     privateKey = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, "base64").toString("utf-8");
   }
-  
+
   if (!clientEmail || !privateKey) {
     throw new Error("Missing Google credentials");
   }
@@ -67,12 +68,22 @@ export async function POST(request: NextRequest) {
 
     // Find header row and relevant columns
     const headers = rows[0];
-    const bookingIdCol = headers.findIndex(
-      (h: string) => h.toLowerCase().replace(/[_\s]/g, "") === "bookingid"
+    const getColIndex = (name: string) => headers.findIndex(
+      (h: string) => h.toLowerCase().replace(/[_\s]/g, "") === name.toLowerCase().replace(/[_\s]/g, "")
     );
-    const cityTaxPaidCol = headers.findIndex(
-      (h: string) => h.toLowerCase().replace(/[_\s]/g, "") === "citytaxpaid"
-    );
+
+    const bookingIdCol = getColIndex("bookingid");
+    const cityTaxPaidCol = getColIndex("citytaxpaid");
+    const firstNameCol = getColIndex("firstname");
+    const lastNameCol = getColIndex("lastname");
+    const guestNameCol = getColIndex("guestname");
+    const emailCol = getColIndex("email");
+    const checkInCol = getColIndex("checkin");
+    const checkOutCol = getColIndex("checkout");
+    const nightsCol = getColIndex("nights");
+    const guestsCol = getColIndex("guests");
+    const roomCol = getColIndex("room");
+    const propertyCol = getColIndex("property");
 
     if (bookingIdCol === -1) {
       return NextResponse.json(
@@ -83,9 +94,11 @@ export async function POST(request: NextRequest) {
 
     // Find the row with matching booking ID
     let targetRowIndex = -1;
+    let bookingRow: string[] = [];
     for (let i = 1; i < rows.length; i++) {
       if (rows[i][bookingIdCol] === bookingId) {
         targetRowIndex = i;
+        bookingRow = rows[i];
         break;
       }
     }
@@ -118,7 +131,45 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true });
+    // Extract booking details for email
+    const getValue = (col: number) => (col !== -1 && bookingRow[col]) ? bookingRow[col] : "";
+
+    let guestName = getValue(guestNameCol);
+    if (!guestName) {
+      guestName = [getValue(firstNameCol), getValue(lastNameCol)].filter(Boolean).join(" ");
+    }
+
+    const nights = parseInt(getValue(nightsCol)) || 1;
+    const guestCount = parseInt(getValue(guestsCol)) || 1;
+    const cityTax = 2.5 * nights * guestCount;
+
+    // Send emails (admin notification + guest confirmation)
+    const emailResult = await sendPaymentEmails({
+      bookingId,
+      guestName: guestName || "Guest",
+      guestEmail: getValue(emailCol),
+      checkIn: getValue(checkInCol).split("T")[0],
+      checkOut: getValue(checkOutCol).split("T")[0],
+      nights,
+      guests: guestCount,
+      room: getValue(roomCol),
+      property: getValue(propertyCol),
+      amount: cityTax,
+      paymentType: "city_tax",
+    });
+
+    // Log email results but don't fail the payment confirmation if emails fail
+    if (emailResult.errors.length > 0) {
+      console.warn("Email sending issues:", emailResult.errors);
+    }
+
+    return NextResponse.json({
+      success: true,
+      emailsSent: {
+        admin: emailResult.adminSent,
+        guest: emailResult.guestSent,
+      }
+    });
   } catch (error) {
     console.error("Tax payment confirm error:", error);
     return NextResponse.json(

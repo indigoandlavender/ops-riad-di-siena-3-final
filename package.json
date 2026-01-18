@@ -9,22 +9,23 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "cloudinary": "^2.0.0",
+    "googleapis": "^144.0.0",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.1",
     "next": "14.2.5",
     "react": "^18",
     "react-dom": "^18",
-    "googleapis": "^144.0.0",
-    "xlsx": "^0.18.5",
-    "cloudinary": "^2.0.0",
-    "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.1"
+    "resend": "^6.7.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "typescript": "^5",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "tailwindcss": "^3.4.1",
+    "autoprefixer": "^10.0.1",
     "postcss": "^8",
-    "autoprefixer": "^10.0.1"
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
   }
 }
