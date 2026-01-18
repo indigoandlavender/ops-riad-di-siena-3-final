@@ -15,8 +15,8 @@ function getResend(): Resend {
 
 // Admin email for notifications
 const ADMIN_EMAIL = "happy@riaddisiena.com";
-// Use Resend's default domain (or verify your domain in Resend dashboard for custom sender)
-const FROM_EMAIL = "Riad di Siena <onboarding@resend.dev>";
+// Verified domain in Resend
+const FROM_EMAIL = "Riad di Siena <operations@mail.riaddisiena.com>";
 
 interface BookingEmailData {
   bookingId: string;
