@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
     const guestsCol = getColIndex("guests");
     const roomCol = getColIndex("room");
     const propertyCol = getColIndex("property");
+    const totalCol = getColIndex("totaleur") !== -1 ? getColIndex("totaleur") : getColIndex("total");
 
     if (bookingIdCol === -1) {
       return NextResponse.json(
@@ -144,6 +145,8 @@ export async function POST(request: NextRequest) {
     const nights = parseInt(getValue(nightsCol)) || 1;
     const guestCount = parseInt(getValue(guestsCol)) || 1;
     const cityTax = 2.5 * nights * guestCount;
+    const totalPaid = parseFloat(getValue(totalCol)) || 0;
+    const roomTotal = totalPaid - cityTax;
 
     // Get WhatsApp (fallback to phone if whatsapp column doesn't exist)
     const whatsapp = getValue(whatsappCol) || getValue(phoneCol);
@@ -160,8 +163,9 @@ export async function POST(request: NextRequest) {
       guests: guestCount,
       room: getValue(roomCol),
       property: getValue(propertyCol),
-      amount: cityTax,
-      paymentType: "city_tax",
+      roomTotal: roomTotal > 0 ? roomTotal : undefined,
+      cityTax,
+      totalPaid: totalPaid > 0 ? totalPaid : cityTax,
     });
 
     // Log email results but don't fail the payment confirmation if emails fail

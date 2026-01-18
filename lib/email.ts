@@ -29,8 +29,9 @@ interface BookingEmailData {
   guests: number;
   room?: string;
   property?: string;
-  amount?: number;
-  paymentType: "city_tax" | "booking";
+  roomTotal?: number;
+  cityTax?: number;
+  totalPaid?: number;
 }
 
 function formatDate(dateStr: string): string {
@@ -51,24 +52,34 @@ export async function sendAdminPaymentNotification(data: BookingEmailData): Prom
     return { success: false, error: "Email service not configured" };
   }
 
-  const paymentTypeLabel = data.paymentType === "city_tax" ? "City Tax" : "Booking";
-  const amountStr = data.amount ? `€${data.amount.toFixed(2)}` : "N/A";
+  const roomTotalStr = data.roomTotal ? `€${data.roomTotal.toFixed(2)}` : "N/A";
+  const cityTaxStr = data.cityTax ? `€${data.cityTax.toFixed(2)}` : "N/A";
+  const totalPaidStr = data.totalPaid ? `€${data.totalPaid.toFixed(2)}` : "N/A";
 
   try {
     await getResend().emails.send({
       from: FROM_EMAIL,
       to: ADMIN_EMAIL,
-      subject: `Payment Received: ${paymentTypeLabel} - ${data.guestName}`,
+      subject: `Payment Received: ${data.guestName} - ${data.room || "Booking"}`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #1a1a1a; margin-bottom: 20px;">Payment Confirmation</h2>
 
           <div style="background: #f8f5f0; border-radius: 12px; padding: 24px; margin-bottom: 20px;">
-            <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Payment Type</p>
-            <p style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 18px; font-weight: 600;">${paymentTypeLabel}</p>
-
-            <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Amount Paid</p>
-            <p style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 24px; font-weight: 700;">${amountStr}</p>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 13px;">Room (${data.nights} ${data.nights === 1 ? "night" : "nights"})</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right;">${roomTotalStr}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 13px;">City Tax (${data.nights} ${data.nights === 1 ? "night" : "nights"} × ${data.guests} ${data.guests === 1 ? "guest" : "guests"} × €2.50)</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right;">${cityTaxStr}</td>
+              </tr>
+              <tr style="border-top: 2px solid #e5e5e5;">
+                <td style="padding: 12px 0 0 0; color: #1a1a1a; font-size: 16px; font-weight: 600;">Total Paid</td>
+                <td style="padding: 12px 0 0 0; color: #1a1a1a; font-size: 20px; font-weight: 700; text-align: right;">${totalPaidStr}</td>
+              </tr>
+            </table>
           </div>
 
           <div style="background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 20px;">
@@ -87,17 +98,17 @@ export async function sendAdminPaymentNotification(data: BookingEmailData): Prom
                 <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">WhatsApp</td>
                 <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right; border-bottom: 1px solid #f0f0f0;">${data.whatsapp}</td>
               </tr>` : ""}
+              ${data.room ? `<tr>
+                <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">Room</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right; border-bottom: 1px solid #f0f0f0;">${data.room}</td>
+              </tr>` : ""}
               <tr>
-                <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">Check-In Date</td>
+                <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">Check-In</td>
                 <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right; border-bottom: 1px solid #f0f0f0;">${formatDate(data.checkIn)}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">Check-Out Date</td>
-                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right; border-bottom: 1px solid #f0f0f0;">${formatDate(data.checkOut)}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #666; font-size: 13px;">Amount Paid</td>
-                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 600; text-align: right;">${amountStr}</td>
+                <td style="padding: 8px 0; color: #666; font-size: 13px;">Check-Out</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right;">${formatDate(data.checkOut)}</td>
               </tr>
             </table>
           </div>

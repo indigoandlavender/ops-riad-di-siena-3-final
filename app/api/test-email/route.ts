@@ -16,29 +16,40 @@ export async function POST() {
     guestName: "John Smith",
     guestEmail: "john.smith@example.com",
     whatsapp: "+1 555 123 4567",
+    room: "Suite Essaouira",
     checkIn: "Sat, Jan 25, 2026",
     checkOut: "Tue, Jan 28, 2026",
     nights: 3,
     guests: 2,
-    amount: "€7.50",
-    paymentType: "City Tax",
+    roomTotal: 450.00,
+    cityTax: 15.00,  // 3 nights × 2 guests × €2.50
+    totalPaid: 465.00,
   };
 
   try {
     await resend.emails.send({
       from: "Riad di Siena <onboarding@resend.dev>",
       to: "happy@indigoandlavender.love",
-      subject: `Payment Received: ${testData.paymentType} - ${testData.guestName}`,
+      subject: `Payment Received: ${testData.guestName} - ${testData.room}`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #1a1a1a; margin-bottom: 20px;">Payment Confirmation</h2>
 
           <div style="background: #f8f5f0; border-radius: 12px; padding: 24px; margin-bottom: 20px;">
-            <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Payment Type</p>
-            <p style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 18px; font-weight: 600;">${testData.paymentType}</p>
-
-            <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Amount Paid</p>
-            <p style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 24px; font-weight: 700;">${testData.amount}</p>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 13px;">Room (${testData.nights} nights)</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right;">€${testData.roomTotal.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 13px;">City Tax (${testData.nights} nights × ${testData.guests} guests × €2.50)</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right;">€${testData.cityTax.toFixed(2)}</td>
+              </tr>
+              <tr style="border-top: 2px solid #e5e5e5;">
+                <td style="padding: 12px 0 0 0; color: #1a1a1a; font-size: 16px; font-weight: 600;">Total Paid</td>
+                <td style="padding: 12px 0 0 0; color: #1a1a1a; font-size: 20px; font-weight: 700; text-align: right;">€${testData.totalPaid.toFixed(2)}</td>
+              </tr>
+            </table>
           </div>
 
           <div style="background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 20px;">
@@ -58,16 +69,16 @@ export async function POST() {
                 <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right; border-bottom: 1px solid #f0f0f0;">${testData.whatsapp}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">Check-In Date</td>
+                <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">Room</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right; border-bottom: 1px solid #f0f0f0;">${testData.room}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">Check-In</td>
                 <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right; border-bottom: 1px solid #f0f0f0;">${testData.checkIn}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">Check-Out Date</td>
-                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right; border-bottom: 1px solid #f0f0f0;">${testData.checkOut}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #666; font-size: 13px;">Amount Paid</td>
-                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 600; text-align: right;">${testData.amount}</td>
+                <td style="padding: 8px 0; color: #666; font-size: 13px;">Check-Out</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right;">${testData.checkOut}</td>
               </tr>
             </table>
           </div>
