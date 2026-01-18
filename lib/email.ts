@@ -1,21 +1,8 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-// Lazy initialization to avoid build-time errors
-let resendClient: Resend | null = null;
-
-function getResend(): Resend {
-  if (!resendClient) {
-    if (!process.env.RESEND_API_KEY) {
-      throw new Error("RESEND_API_KEY environment variable is not set");
-    }
-    resendClient = new Resend(process.env.RESEND_API_KEY);
-  }
-  return resendClient;
-}
-
-// Admin email for notifications
+// Gmail account for sending emails
+const GMAIL_USER = "happy@riaddisiena.com";
 const ADMIN_EMAIL = "happy@riaddisiena.com";
-const FROM_EMAIL = "Riad di Siena <noreply@riaddisiena.com>";
 
 interface BookingEmailData {
   bookingId: string;
@@ -42,10 +29,24 @@ function formatDate(dateStr: string): string {
   });
 }
 
+function getTransporter() {
+  if (!process.env.GMAIL_APP_PASSWORD) {
+    throw new Error("GMAIL_APP_PASSWORD environment variable is not set");
+  }
+
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+}
+
 // Send notification to admin when payment is received
 export async function sendAdminPaymentNotification(data: BookingEmailData): Promise<{ success: boolean; error?: string }> {
-  if (!process.env.RESEND_API_KEY) {
-    console.error("Missing RESEND_API_KEY");
+  if (!process.env.GMAIL_APP_PASSWORD) {
+    console.error("Missing GMAIL_APP_PASSWORD");
     return { success: false, error: "Email service not configured" };
   }
 
@@ -53,8 +54,10 @@ export async function sendAdminPaymentNotification(data: BookingEmailData): Prom
   const amountStr = data.amount ? `€${data.amount.toFixed(2)}` : "N/A";
 
   try {
-    await getResend().emails.send({
-      from: FROM_EMAIL,
+    const transporter = getTransporter();
+
+    await transporter.sendMail({
+      from: `"Riad di Siena" <${GMAIL_USER}>`,
       to: ADMIN_EMAIL,
       subject: `Payment Received: ${paymentTypeLabel} - ${data.guestName}`,
       html: `
@@ -71,16 +74,18 @@ export async function sendAdminPaymentNotification(data: BookingEmailData): Prom
             <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Guest</p>
             <p style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 16px;">${data.guestName}</p>
 
-            <div style="display: flex; gap: 40px;">
-              <div>
-                <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-In</p>
-                <p style="margin: 0; color: #1a1a1a; font-size: 14px;">${formatDate(data.checkIn)}</p>
-              </div>
-              <div>
-                <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-Out</p>
-                <p style="margin: 0; color: #1a1a1a; font-size: 14px;">${formatDate(data.checkOut)}</p>
-              </div>
-            </div>
+            <table style="width: 100%;">
+              <tr>
+                <td style="padding-right: 20px;">
+                  <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-In</p>
+                  <p style="margin: 0; color: #1a1a1a; font-size: 14px;">${formatDate(data.checkIn)}</p>
+                </td>
+                <td>
+                  <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-Out</p>
+                  <p style="margin: 0; color: #1a1a1a; font-size: 14px;">${formatDate(data.checkOut)}</p>
+                </td>
+              </tr>
+            </table>
           </div>
 
           <div style="background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 20px;">
@@ -107,8 +112,8 @@ export async function sendAdminPaymentNotification(data: BookingEmailData): Prom
 
 // Send confirmation email to guest
 export async function sendGuestPaymentConfirmation(data: BookingEmailData): Promise<{ success: boolean; error?: string }> {
-  if (!process.env.RESEND_API_KEY) {
-    console.error("Missing RESEND_API_KEY");
+  if (!process.env.GMAIL_APP_PASSWORD) {
+    console.error("Missing GMAIL_APP_PASSWORD");
     return { success: false, error: "Email service not configured" };
   }
 
@@ -121,8 +126,10 @@ export async function sendGuestPaymentConfirmation(data: BookingEmailData): Prom
   const amountStr = data.amount ? `€${data.amount.toFixed(2)}` : "";
 
   try {
-    await getResend().emails.send({
-      from: FROM_EMAIL,
+    const transporter = getTransporter();
+
+    await transporter.sendMail({
+      from: `"Riad di Siena" <${GMAIL_USER}>`,
       to: data.guestEmail,
       subject: `Payment Confirmed - Riad di Siena`,
       html: `
@@ -132,7 +139,7 @@ export async function sendGuestPaymentConfirmation(data: BookingEmailData): Prom
           </div>
 
           <div style="background: #f0fdf4; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
-            <div style="width: 48px; height: 48px; background: #dcfce7; border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
+            <div style="width: 48px; height: 48px; background: #dcfce7; border-radius: 50%; margin: 0 auto 16px; line-height: 48px;">
               <span style="color: #16a34a; font-size: 24px;">✓</span>
             </div>
             <h2 style="color: #166534; margin: 0 0 8px 0; font-size: 20px;">Payment Received</h2>
@@ -145,16 +152,18 @@ export async function sendGuestPaymentConfirmation(data: BookingEmailData): Prom
             <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Guest</p>
             <p style="margin: 0 0 16px 0; color: #1a1a1a; font-size: 16px;">${data.guestName}</p>
 
-            <div style="display: flex; gap: 40px; margin-bottom: 16px;">
-              <div>
-                <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-In</p>
-                <p style="margin: 0; color: #1a1a1a; font-size: 14px;">${formatDate(data.checkIn)}</p>
-              </div>
-              <div>
-                <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-Out</p>
-                <p style="margin: 0; color: #1a1a1a; font-size: 14px;">${formatDate(data.checkOut)}</p>
-              </div>
-            </div>
+            <table style="width: 100%; margin-bottom: 16px;">
+              <tr>
+                <td style="padding-right: 20px;">
+                  <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-In</p>
+                  <p style="margin: 0; color: #1a1a1a; font-size: 14px;">${formatDate(data.checkIn)}</p>
+                </td>
+                <td>
+                  <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-Out</p>
+                  <p style="margin: 0; color: #1a1a1a; font-size: 14px;">${formatDate(data.checkOut)}</p>
+                </td>
+              </tr>
+            </table>
 
             <p style="margin: 0 0 4px 0; color: #666; font-size: 13px;"><strong>Nights:</strong> ${data.nights}</p>
             <p style="margin: 0; color: #666; font-size: 13px;"><strong>Guests:</strong> ${data.guests}</p>
