@@ -31,17 +31,35 @@ function formatPrivateKey(key: string): string {
 }
 
 function getAuth() {
-  // Support multiple env var naming conventions
-  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  
-  // Get private key (try raw first, then base64)
-  let privateKey = process.env.GOOGLE_PRIVATE_KEY;
-  if (!privateKey && process.env.GOOGLE_PRIVATE_KEY_BASE64) {
-    privateKey = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, "base64").toString("utf-8");
+  let clientEmail: string | undefined;
+  let privateKey: string | undefined;
+
+  // Option 1: Full service account JSON (base64 encoded)
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
+    try {
+      const decoded = Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_BASE64, "base64").toString("utf-8");
+      const serviceAccount = JSON.parse(decoded);
+      clientEmail = serviceAccount.client_email;
+      privateKey = serviceAccount.private_key;
+    } catch (e) {
+      console.error("Failed to parse GOOGLE_SERVICE_ACCOUNT_BASE64:", e);
+    }
   }
-  
+
+  // Option 2: Individual env vars (fallback)
+  if (!clientEmail) {
+    clientEmail = process.env.GOOGLE_CLIENT_EMAIL || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  }
+
+  if (!privateKey) {
+    privateKey = process.env.GOOGLE_PRIVATE_KEY;
+    if (!privateKey && process.env.GOOGLE_PRIVATE_KEY_BASE64) {
+      privateKey = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, "base64").toString("utf-8");
+    }
+  }
+
   if (!clientEmail || !privateKey) {
-    throw new Error("Missing Google credentials. Set GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY in Vercel environment variables");
+    throw new Error("Missing Google credentials. Set GOOGLE_SERVICE_ACCOUNT_BASE64 or GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY in Vercel environment variables");
   }
 
   // Format the private key properly
@@ -59,15 +77,16 @@ function getAuth() {
 // Test authentication without exposing secrets
 export async function testAuth(): Promise<{ success: boolean; error?: string; details?: string }> {
   try {
+    const hasServiceAccountBase64 = !!process.env.GOOGLE_SERVICE_ACCOUNT_BASE64;
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const hasPrivateKey = !!(process.env.GOOGLE_PRIVATE_KEY || process.env.GOOGLE_PRIVATE_KEY_BASE64);
     const hasSheetId = !!SHEET_ID;
-    
-    if (!clientEmail) {
-      return { success: false, error: "Missing GOOGLE_CLIENT_EMAIL", details: "Set this in Vercel Environment Variables" };
-    }
-    if (!hasPrivateKey) {
-      return { success: false, error: "Missing GOOGLE_PRIVATE_KEY", details: "Set this in Vercel Environment Variables" };
+
+    // Check for either full service account JSON or individual credentials
+    const hasCredentials = hasServiceAccountBase64 || (clientEmail && hasPrivateKey);
+
+    if (!hasCredentials) {
+      return { success: false, error: "Missing Google credentials", details: "Set GOOGLE_SERVICE_ACCOUNT_BASE64 or GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY in Vercel Environment Variables" };
     }
     if (!hasSheetId) {
       return { success: false, error: "Missing GOOGLE_SPREADSHEET_ID", details: "Set this in Vercel Environment Variables" };
