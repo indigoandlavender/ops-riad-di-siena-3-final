@@ -37,6 +37,7 @@ export default function AddReservationPage() {
     lastName: "",
     email: "",
     phone: "",
+    whatsapp: "",
     checkIn: "",
     checkOut: "",
     guests: 1,
@@ -243,22 +244,37 @@ export default function AddReservationPage() {
               </div>
             </div>
 
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.08em] text-black/40 mb-2">
+                Email *
+              </label>
+              <input
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full bg-transparent border-b border-black/20 pb-2 text-[13px] focus:outline-none focus:border-black"
+                placeholder="guest@email.com"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <label className="block text-[10px] uppercase tracking-[0.08em] text-black/40 mb-2">
-                  Email
+                  WhatsApp Number *
                 </label>
                 <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  type="tel"
+                  required
+                  value={formData.whatsapp}
+                  onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
                   className="w-full bg-transparent border-b border-black/20 pb-2 text-[13px] focus:outline-none focus:border-black"
-                  placeholder="Optional"
+                  placeholder="+1 555 123 4567"
                 />
               </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-[0.08em] text-black/40 mb-2">
-                  Phone
+                  Phone (if different)
                 </label>
                 <input
                   type="tel"

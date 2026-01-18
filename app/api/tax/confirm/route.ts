@@ -78,6 +78,8 @@ export async function POST(request: NextRequest) {
     const lastNameCol = getColIndex("lastname");
     const guestNameCol = getColIndex("guestname");
     const emailCol = getColIndex("email");
+    const whatsappCol = getColIndex("whatsapp");
+    const phoneCol = getColIndex("phone");
     const checkInCol = getColIndex("checkin");
     const checkOutCol = getColIndex("checkout");
     const nightsCol = getColIndex("nights");
@@ -143,11 +145,15 @@ export async function POST(request: NextRequest) {
     const guestCount = parseInt(getValue(guestsCol)) || 1;
     const cityTax = 2.5 * nights * guestCount;
 
+    // Get WhatsApp (fallback to phone if whatsapp column doesn't exist)
+    const whatsapp = getValue(whatsappCol) || getValue(phoneCol);
+
     // Send emails (admin notification + guest confirmation)
     const emailResult = await sendPaymentEmails({
       bookingId,
       guestName: guestName || "Guest",
       guestEmail: getValue(emailCol),
+      whatsapp,
       checkIn: getValue(checkInCol).split("T")[0],
       checkOut: getValue(checkOutCol).split("T")[0],
       nights,

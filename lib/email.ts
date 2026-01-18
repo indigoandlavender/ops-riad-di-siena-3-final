@@ -8,6 +8,7 @@ interface BookingEmailData {
   bookingId: string;
   guestName: string;
   guestEmail: string;
+  whatsapp?: string;
   checkIn: string;
   checkOut: string;
   nights: number;
@@ -68,32 +69,39 @@ export async function sendAdminPaymentNotification(data: BookingEmailData): Prom
             <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Payment Type</p>
             <p style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 18px; font-weight: 600;">${paymentTypeLabel}</p>
 
-            <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Amount</p>
+            <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Amount Paid</p>
             <p style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 24px; font-weight: 700;">${amountStr}</p>
-
-            <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Guest</p>
-            <p style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 16px;">${data.guestName}</p>
-
-            <table style="width: 100%;">
-              <tr>
-                <td style="padding-right: 20px;">
-                  <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-In</p>
-                  <p style="margin: 0; color: #1a1a1a; font-size: 14px;">${formatDate(data.checkIn)}</p>
-                </td>
-                <td>
-                  <p style="margin: 0 0 8px 0; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-Out</p>
-                  <p style="margin: 0; color: #1a1a1a; font-size: 14px;">${formatDate(data.checkOut)}</p>
-                </td>
-              </tr>
-            </table>
           </div>
 
           <div style="background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 20px;">
-            <p style="margin: 0 0 12px 0; color: #666; font-size: 13px;"><strong>Booking ID:</strong> ${data.bookingId}</p>
-            <p style="margin: 0 0 12px 0; color: #666; font-size: 13px;"><strong>Nights:</strong> ${data.nights}</p>
-            <p style="margin: 0 0 12px 0; color: #666; font-size: 13px;"><strong>Guests:</strong> ${data.guests}</p>
-            ${data.room ? `<p style="margin: 0 0 12px 0; color: #666; font-size: 13px;"><strong>Room:</strong> ${data.room}</p>` : ""}
-            ${data.guestEmail ? `<p style="margin: 0; color: #666; font-size: 13px;"><strong>Email:</strong> ${data.guestEmail}</p>` : ""}
+            <h3 style="margin: 0 0 16px 0; color: #1a1a1a; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Guest Details</h3>
+
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">Guest Name</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right; border-bottom: 1px solid #f0f0f0;">${data.guestName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">Email Address</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right; border-bottom: 1px solid #f0f0f0;">${data.guestEmail || "N/A"}</td>
+              </tr>
+              ${data.whatsapp ? `<tr>
+                <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">WhatsApp</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right; border-bottom: 1px solid #f0f0f0;">${data.whatsapp}</td>
+              </tr>` : ""}
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">Check-In Date</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right; border-bottom: 1px solid #f0f0f0;">${formatDate(data.checkIn)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 13px; border-bottom: 1px solid #f0f0f0;">Check-Out Date</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 500; text-align: right; border-bottom: 1px solid #f0f0f0;">${formatDate(data.checkOut)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 13px;">Amount Paid</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-size: 13px; font-weight: 600; text-align: right;">${amountStr}</td>
+              </tr>
+            </table>
           </div>
 
           <p style="margin-top: 24px; color: #999; font-size: 12px; text-align: center;">
