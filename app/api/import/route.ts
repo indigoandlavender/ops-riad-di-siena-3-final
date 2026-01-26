@@ -388,7 +388,8 @@ function normalizeStatus(status: string): string {
   if (!status) return "confirmed";
   const lower = status.toLowerCase().trim();
   
-  if (lower === "ok" || lower === "confirmed" || lower === "accepted") {
+  // Airbnb uses "Confirmed" and "Currently hosting"
+  if (lower === "ok" || lower === "confirmed" || lower === "accepted" || lower.includes("currently hosting")) {
     return "confirmed";
   }
   if (lower.includes("cancel")) {
@@ -637,6 +638,12 @@ export async function POST(request: NextRequest) {
 
     // Get existing bookings
     const existingData = await getSheetData("Master_Guests");
+    
+    // Debug: Log existing sheet structure
+    const existingSheetHeaders = existingData.length > 0 ? existingData[0] : [];
+    console.log("[Import Debug] Existing sheet headers:", existingSheetHeaders);
+    console.log("[Import Debug] Total rows in sheet:", existingData.length);
+    
     const existingRows = rowsToObjects<Record<string, string>>(existingData);
     const existingByBookingId = new Map<string, { row: Record<string, string>; index: number }>();
     
@@ -646,6 +653,13 @@ export async function POST(request: NextRequest) {
         existingByBookingId.set(row.booking_id.trim(), { row, index });
       }
     });
+    
+    // Debug: Log how many existing booking IDs we found
+    console.log("[Import Debug] Existing booking IDs count:", existingByBookingId.size);
+    if (existingByBookingId.size > 0) {
+      const sampleIds = Array.from(existingByBookingId.keys()).slice(0, 5);
+      console.log("[Import Debug] Sample existing IDs:", sampleIds);
+    }
 
     // Transform and process rows
     const results = {
@@ -715,6 +729,9 @@ export async function POST(request: NextRequest) {
       results,
       totalProcessed: rows.length,
       detectedHeaders: headers.slice(0, 15), // Show first 15 headers for debugging
+      existingSheetHeaders: existingSheetHeaders.slice(0, 10), // Show first 10 sheet headers
+      existingRecordsCount: existingByBookingId.size,
+      sheetId: process.env.GOOGLE_SPREADSHEET_ID?.slice(-10) || "not-set", // Last 10 chars for verification
     });
   } catch (error) {
     console.error("Import error:", error);

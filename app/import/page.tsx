@@ -12,6 +12,9 @@ interface ImportResults {
   changes: string[];
   source?: string;
   detectedHeaders?: string[];
+  existingSheetHeaders?: string[];
+  existingRecordsCount?: number;
+  sheetId?: string;
 }
 
 interface AuthStatus {
@@ -88,6 +91,9 @@ export default function ImportPage() {
         ...data.results,
         source: data.source,
         detectedHeaders: data.detectedHeaders,
+        existingSheetHeaders: data.existingSheetHeaders,
+        existingRecordsCount: data.existingRecordsCount,
+        sheetId: data.sheetId,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -308,6 +314,11 @@ export default function ImportPage() {
                     {results.updated > 0 && ` · ${results.updated} updated`}
                     {results.cancelled > 0 && ` · ${results.cancelled} cancelled`}
                   </p>
+                  {results.sheetId && (
+                    <p className="text-[10px] text-emerald-600 mt-1 font-mono">
+                      Writing to sheet ending in: ...{results.sheetId}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -326,10 +337,22 @@ export default function ImportPage() {
             {results.detectedHeaders && results.detectedHeaders.length > 0 && (
               <details className="text-[11px] text-black/40">
                 <summary className="cursor-pointer hover:text-black/60">
-                  Detected columns ({results.detectedHeaders.length})
+                  Detected columns in uploaded file ({results.detectedHeaders.length})
                 </summary>
                 <div className="mt-2 p-3 bg-black/[0.02] border border-black/[0.06] rounded font-mono text-[10px]">
                   {results.detectedHeaders.join(", ")}
+                </div>
+              </details>
+            )}
+
+            {/* Debug: Show existing sheet info */}
+            {results.existingSheetHeaders && results.existingSheetHeaders.length > 0 && (
+              <details className="text-[11px] text-black/40">
+                <summary className="cursor-pointer hover:text-black/60">
+                  Existing Master_Guests sheet headers ({results.existingSheetHeaders.length}) · {results.existingRecordsCount || 0} existing records
+                </summary>
+                <div className="mt-2 p-3 bg-black/[0.02] border border-black/[0.06] rounded font-mono text-[10px]">
+                  {results.existingSheetHeaders.join(", ")}
                 </div>
               </details>
             )}
