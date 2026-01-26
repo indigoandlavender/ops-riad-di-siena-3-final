@@ -131,7 +131,7 @@ export function getSheetId(): string {
   return SHEET_ID;
 }
 
-export async function getSheetData(tabName: string): Promise<string[][]> {
+export async function getSheetData(tabName: string, formatted: boolean = true): Promise<string[][]> {
   if (!SHEET_ID) throw new Error("Missing GOOGLE_SPREADSHEET_ID");
   
   const auth = getAuth();
@@ -140,6 +140,8 @@ export async function getSheetData(tabName: string): Promise<string[][]> {
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
     range: `${tabName}!A:ZZ`,
+    // Use FORMATTED_VALUE to get dates as displayed, or UNFORMATTED_VALUE for raw serial numbers
+    valueRenderOption: formatted ? 'FORMATTED_VALUE' : 'UNFORMATTED_VALUE',
   });
 
   return response.data.values || [];

@@ -638,42 +638,16 @@ export async function POST(request: NextRequest) {
 
     // Get existing bookings
     const existingData = await getSheetData("Master_Guests");
-    
-    // Debug: Log existing sheet structure
     const existingSheetHeaders = existingData.length > 0 ? existingData[0] : [];
-    console.log("[Import Debug] Existing sheet headers:", existingSheetHeaders);
-    console.log("[Import Debug] Total rows in sheet:", existingData.length);
-    
-    // CRITICAL: Check if headers match what we expect
-    const expectedHeaders = ["booking_id", "source", "status", "first_name", "last_name", "email", "phone", "country", "language", "property", "room"];
-    const missingHeaders = expectedHeaders.filter(h => !existingSheetHeaders.includes(h));
-    if (missingHeaders.length > 0) {
-      console.log("[Import Debug] ⚠️ MISSING HEADERS:", missingHeaders);
-    }
     
     const existingRows = rowsToObjects<Record<string, string>>(existingData);
     const existingByBookingId = new Map<string, { row: Record<string, string>; index: number }>();
     
     existingRows.forEach((row, index) => {
       if (row.booking_id) {
-        // Store 0-based data row index (not sheet row)
         existingByBookingId.set(row.booking_id.trim(), { row, index });
       }
     });
-    
-    // Debug: Log how many existing booking IDs we found
-    console.log("[Import Debug] Existing booking IDs count:", existingByBookingId.size);
-    if (existingByBookingId.size > 0) {
-      const sampleIds = Array.from(existingByBookingId.keys()).slice(0, 5);
-      console.log("[Import Debug] Sample existing IDs:", sampleIds);
-      // Log sample room values
-      const sampleWithRooms = Array.from(existingByBookingId.entries()).slice(0, 3).map(([id, data]) => ({
-        id,
-        room: data.row.room,
-        property: data.row.property
-      }));
-      console.log("[Import Debug] Sample rooms:", sampleWithRooms);
-    }
 
     // Transform and process rows
     const results = {
@@ -742,16 +716,6 @@ export async function POST(request: NextRequest) {
       source,
       results,
       totalProcessed: rows.length,
-      detectedHeaders: headers.slice(0, 15), // Show first 15 headers for debugging
-      existingSheetHeaders: existingSheetHeaders.slice(0, 15), // Show first 15 sheet headers
-      existingRecordsCount: existingByBookingId.size,
-      sheetId: process.env.GOOGLE_SPREADSHEET_ID?.slice(-10) || "not-set", // Last 10 chars for verification
-      missingHeaders: expectedHeaders.filter(h => !existingSheetHeaders.includes(h)),
-      sampleRooms: Array.from(existingByBookingId.entries()).slice(0, 5).map(([id, data]) => ({
-        id,
-        room: data.row.room || "(empty)",
-        property: data.row.property || "(empty)"
-      })),
     });
   } catch (error) {
     console.error("Import error:", error);

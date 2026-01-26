@@ -18,19 +18,54 @@ function normalizePhone(phone: string | number | undefined): string {
   return cleaned;
 }
 
+// Normalize date to ISO format (YYYY-MM-DD)
+// Handles: "2026-04-19", "4/19/2026", "19/4/2026", serial numbers, Date objects
+function normalizeDate(dateValue: any): string {
+  if (!dateValue) return "";
+  
+  // Already ISO format
+  if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
+    return dateValue.slice(0, 10);
+  }
+  
+  // Serial number (days since Dec 30, 1899)
+  if (typeof dateValue === 'number' && dateValue > 40000 && dateValue < 60000) {
+    const date = new Date((dateValue - 25569) * 86400 * 1000);
+    return date.toISOString().slice(0, 10);
+  }
+  
+  // String date formats
+  if (typeof dateValue === 'string') {
+    // Try US format: M/D/YYYY or MM/DD/YYYY
+    const usMatch = dateValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (usMatch) {
+      const [, month, day, year] = usMatch;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    
+    // Try EU format: D/M/YYYY or DD/MM/YYYY
+    const euMatch = dateValue.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (euMatch) {
+      const [, day, month, year] = euMatch;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    
+    // Try parsing with Date constructor
+    const parsed = new Date(dateValue);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  }
+  
+  // Return as-is if we can't parse
+  console.log("[normalizeDate] Could not parse date:", dateValue, typeof dateValue);
+  return String(dateValue);
+}
+
 export async function GET() {
   try {
     const rows = await getSheetData("Master_Guests");
-    
-    // Debug: Log headers and first data row
-    console.log("Master_Guests headers:", rows[0]);
-    console.log("First data row:", rows[1]);
-    
     const rawBookings = rowsToObjects(rows);
-    
-    // Debug: Log first raw booking object
-    console.log("First raw booking object keys:", Object.keys(rawBookings[0] || {}));
-    console.log("Sample raw booking:", rawBookings[rawBookings.length - 1]);
     
     // Map Master_Guests columns to booking format
     const bookings = rawBookings.map((row: any) => ({
@@ -42,8 +77,8 @@ export async function GET() {
       phone: normalizePhone(row.phone),
       country: row.country || "",
       language: row.language || "",
-      checkIn: row.check_in || "",
-      checkOut: row.check_out || "",
+      checkIn: normalizeDate(row.check_in),
+      checkOut: normalizeDate(row.check_out),
       nights: row.nights || "",
       guests: row.guests || "",
       adults: row.adults || "",
@@ -64,13 +99,7 @@ export async function GET() {
       updatedAt: row.updated_at || "",
     }));
 
-    return NextResponse.json({ 
-      bookings,
-      _debug: {
-        headers: rows[0],
-        sampleRaw: rawBookings[rawBookings.length - 1]
-      }
-    });
+    return NextResponse.json({ bookings });
   } catch (error) {
     console.error("Failed to fetch bookings:", error);
     return NextResponse.json({ bookings: [], error: "Failed to fetch bookings" }, { status: 500 });

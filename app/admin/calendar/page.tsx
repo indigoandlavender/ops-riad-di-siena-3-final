@@ -110,11 +110,9 @@ export default function CalendarPage() {
 
   // Fetch bookings and use canonical rooms
   useEffect(() => {
-    // Add timestamp to bust cache
     fetch(`/api/admin/bookings?_t=${Date.now()}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((data) => {
-        
         const allBookings = (data.bookings || []).map((b: any) => ({
           id: b.Booking_ID || b.booking_id,
           guestName: [b.firstName || b.first_name, b.lastName || b.last_name].filter(Boolean).join(" "),
@@ -127,12 +125,18 @@ export default function CalendarPage() {
           status: b.status || "",
         }));
 
-        // Deduplicate bookings
+        // Deduplicate bookings by id (but keep bookings without id)
         const bookingMap = new Map<string, Booking>();
+        const bookingsWithoutId: Booking[] = [];
+        
         for (const b of allBookings) {
-          if (b.id) bookingMap.set(b.id, b);
+          if (b.id && b.id.trim()) {
+            bookingMap.set(b.id, b);
+          } else {
+            bookingsWithoutId.push(b);
+          }
         }
-        const deduped = Array.from(bookingMap.values());
+        const deduped = [...Array.from(bookingMap.values()), ...bookingsWithoutId];
 
         // Filter out cancelled
         const filtered = deduped.filter((b: Booking) => {
