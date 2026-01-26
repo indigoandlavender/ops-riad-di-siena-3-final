@@ -306,11 +306,6 @@ export default function ImportPage() {
                     {results.updated > 0 && ` · ${results.updated} updated`}
                     {results.cancelled > 0 && ` · ${results.cancelled} cancelled`}
                   </p>
-                  {results.sheetId && (
-                    <p className="text-[10px] text-emerald-600 mt-1 font-mono">
-                      Writing to sheet ending in: ...{results.sheetId}
-                    </p>
-                  )}
                 </div>
               </div>
             </div>
