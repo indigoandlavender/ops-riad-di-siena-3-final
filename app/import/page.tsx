@@ -15,6 +15,8 @@ interface ImportResults {
   existingSheetHeaders?: string[];
   existingRecordsCount?: number;
   sheetId?: string;
+  missingHeaders?: string[];
+  sampleRooms?: { id: string; room: string; property: string }[];
 }
 
 interface AuthStatus {
@@ -94,6 +96,8 @@ export default function ImportPage() {
         existingSheetHeaders: data.existingSheetHeaders,
         existingRecordsCount: data.existingRecordsCount,
         sheetId: data.sheetId,
+        missingHeaders: data.missingHeaders,
+        sampleRooms: data.sampleRooms,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -353,6 +357,51 @@ export default function ImportPage() {
                 </summary>
                 <div className="mt-2 p-3 bg-black/[0.02] border border-black/[0.06] rounded font-mono text-[10px]">
                   {results.existingSheetHeaders.join(", ")}
+                </div>
+              </details>
+            )}
+
+            {/* ⚠️ Missing Headers Warning */}
+            {results.missingHeaders && results.missingHeaders.length > 0 && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="font-semibold text-[13px] text-amber-800 mb-2">⚠️ Missing Column Headers in Sheet</p>
+                <p className="text-[12px] text-amber-700 mb-2">
+                  The following required columns are not in your Master_Guests sheet:
+                </p>
+                <div className="font-mono text-[11px] text-amber-900 bg-amber-100 p-2 rounded">
+                  {results.missingHeaders.join(", ")}
+                </div>
+                <p className="text-[11px] text-amber-600 mt-2">
+                  This may cause room assignments and other data to not appear correctly.
+                </p>
+              </div>
+            )}
+
+            {/* Debug: Show sample room assignments */}
+            {results.sampleRooms && results.sampleRooms.length > 0 && (
+              <details className="text-[11px] text-black/40">
+                <summary className="cursor-pointer hover:text-black/60">
+                  Sample room assignments (first 5 bookings)
+                </summary>
+                <div className="mt-2 p-3 bg-black/[0.02] border border-black/[0.06] rounded text-[10px]">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left text-black/50">
+                        <th className="pr-4 pb-2">Booking ID</th>
+                        <th className="pr-4 pb-2">Room</th>
+                        <th className="pb-2">Property</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-mono">
+                      {results.sampleRooms.map((sample, i) => (
+                        <tr key={i}>
+                          <td className="pr-4 py-1">{sample.id}</td>
+                          <td className={`pr-4 py-1 ${sample.room === "(empty)" ? "text-red-500" : ""}`}>{sample.room}</td>
+                          <td className={`py-1 ${sample.property === "(empty)" ? "text-red-500" : ""}`}>{sample.property}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </details>
             )}
