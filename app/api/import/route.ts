@@ -532,6 +532,35 @@ function transformAirbnbRow(row: Record<string, string>): Record<string, string>
   return transformed;
 }
 
+// Validate booking ID format
+function isValidBookingId(id: string, source: "booking.com" | "airbnb"): boolean {
+  if (!id || id.length < 5) return false;
+  
+  // Reject if it looks like remarks/comments text
+  const lowerText = id.toLowerCase();
+  const invalidPhrases = [
+    "guest", "interested", "airport", "shuttle", "please", "confirm",
+    "thank you", "we need", "suitcase", "morning", "arrive", "email",
+    "information", "would like", "service", "pick up", "transfer"
+  ];
+  
+  if (invalidPhrases.some(phrase => lowerText.includes(phrase))) {
+    return false;
+  }
+  
+  // Booking.com IDs are typically 10-digit numbers
+  if (source === "booking.com") {
+    return /^\d{8,12}$/.test(id.trim());
+  }
+  
+  // Airbnb IDs are alphanumeric like "HMQE8WYD2B"
+  if (source === "airbnb") {
+    return /^HM[A-Z0-9]{8,10}$/.test(id.trim().toUpperCase());
+  }
+  
+  return true;
+}
+
 // Fields to compare for detecting changes
 const fieldsToCompare = [
   "status",
@@ -655,7 +684,9 @@ export async function POST(request: NextRequest) {
       updated: 0,
       unchanged: 0,
       cancelled: 0,
+      skipped: 0,
       errors: [] as string[],
+      changes: [] as string[],
     };
 
     const toAdd: Record<string, string>[] = [];
@@ -673,6 +704,13 @@ export async function POST(request: NextRequest) {
 
         // Normalize booking_id for comparison
         const bookingId = transformed.booking_id.trim();
+
+        // Validate booking ID format - reject garbage rows where Remarks ended up in booking_id
+        if (!isValidBookingId(bookingId, source)) {
+          results.skipped++;
+          results.errors.push(`Invalid booking ID format: "${bookingId.substring(0, 30)}..." - skipped`);
+          continue;
+        }
 
         // Skip cancelled bookings if they're not in our system
         if (transformed.status === "cancelled") {
@@ -692,6 +730,7 @@ export async function POST(request: NextRequest) {
             const rowData = objectToRow(merged, HEADERS);
             await updateSheetRow("Master_Guests", existing.index, rowData);
             results.updated++;
+            results.changes.push(`Updated: ${transformed.first_name} ${transformed.last_name} (${bookingId})`);
           } else {
             results.unchanged++;
           }
@@ -699,6 +738,7 @@ export async function POST(request: NextRequest) {
           // New booking
           toAdd.push(transformed);
           results.added++;
+          results.changes.push(`Added: ${transformed.first_name} ${transformed.last_name} - ${transformed.check_in} (${bookingId})`);
         }
       } catch (err) {
         results.errors.push(`Error processing row: ${err}`);
