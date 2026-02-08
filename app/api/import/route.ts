@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import {
-  getSheetData,
-  appendToSheet,
-  updateSheetRow,
-  ensureTabExists,
-  rowsToObjects,
-  objectToRow,
-} from "@/lib/sheets";
+  getAllGuests,
+  insertGuests,
+  updateGuestByBookingId,
+  MasterGuest,
+} from "@/lib/supabase";
 
 // Master_Guests column headers (29 columns) - matches actual Google Sheet structure
 const HEADERS = [
@@ -644,41 +642,27 @@ export async function POST(request: NextRequest) {
     }
 
     if (rows.length === 0) {
-      return NextResponse.json(
-        { error: "No data found in file" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No data found in file" }, { status: 400 });
     }
 
     // Detect source
     const source = detectSource(headers);
     if (source === "unknown") {
       return NextResponse.json(
-        { 
-          error: "Could not detect source. Expected Booking.com or Airbnb export.",
-          detectedHeaders: headers.slice(0, 10)
-        },
+        { error: "Could not detect source. Expected Booking.com or Airbnb export.", detectedHeaders: headers.slice(0, 10) },
         { status: 400 }
       );
     }
 
-    // Ensure tab exists with headers
-    await ensureTabExists("Master_Guests", HEADERS);
-
-    // Get existing bookings
-    const existingData = await getSheetData("Master_Guests");
-    const existingSheetHeaders = existingData.length > 0 ? existingData[0] : [];
-    
-    const existingRows = rowsToObjects<Record<string, string>>(existingData);
-    const existingByBookingId = new Map<string, { row: Record<string, string>; index: number }>();
-    
-    existingRows.forEach((row, index) => {
-      if (row.booking_id) {
-        existingByBookingId.set(row.booking_id.trim(), { row, index });
+    // Get existing bookings from Supabase
+    const existingGuests = await getAllGuests();
+    const existingByBookingId = new Map<string, MasterGuest>();
+    existingGuests.forEach((guest) => {
+      if (guest.booking_id) {
+        existingByBookingId.set(guest.booking_id.trim(), guest);
       }
     });
 
-    // Transform and process rows
     const results = {
       added: 0,
       updated: 0,
@@ -689,11 +673,11 @@ export async function POST(request: NextRequest) {
       changes: [] as string[],
     };
 
-    const toAdd: Record<string, string>[] = [];
+    const toAdd: Partial<MasterGuest>[] = [];
 
     for (const row of rows) {
       try {
-        const transformed = source === "booking.com" 
+        const transformed = source === "booking.com"
           ? transformBookingComRow(row)
           : transformAirbnbRow(row);
 
@@ -702,33 +686,43 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Normalize booking_id for comparison
         const bookingId = transformed.booking_id.trim();
 
-        // Validate booking ID format - reject garbage rows where Remarks ended up in booking_id
         if (!isValidBookingId(bookingId, source)) {
           results.skipped++;
           results.errors.push(`Invalid booking ID format: "${bookingId.substring(0, 30)}..." - skipped`);
           continue;
         }
 
-        // Skip cancelled bookings if they're not in our system
-        if (transformed.status === "cancelled") {
-          const existing = existingByBookingId.get(bookingId);
-          if (!existing) {
-            results.cancelled++;
-            continue;
-          }
+        // Skip new cancelled bookings
+        if (transformed.status === "cancelled" && !existingByBookingId.has(bookingId)) {
+          results.cancelled++;
+          continue;
         }
 
         const existing = existingByBookingId.get(bookingId);
 
         if (existing) {
-          // Check if there are changes
-          if (hasChanges(existing.row, transformed)) {
-            const merged = mergeRecords(existing.row, transformed);
-            const rowData = objectToRow(merged, HEADERS);
-            await updateSheetRow("Master_Guests", existing.index, rowData);
+          // Check for changes using the comparison fields
+          const existingFlat: Record<string, string> = {};
+          for (const [k, v] of Object.entries(existing)) {
+            existingFlat[k] = v != null ? String(v) : "";
+          }
+
+          if (hasChanges(existingFlat, transformed)) {
+            // Build update object — only include non-empty incoming fields
+            const updates: Partial<MasterGuest> = {};
+            for (const field of fieldsToCompare) {
+              const val = transformed[field];
+              if (val && val.trim() !== "") {
+                (updates as any)[field] = field === "nights" || field === "guests" || field === "adults" || field === "children"
+                  ? parseInt(val) || null
+                  : field === "total_eur"
+                  ? parseFloat(val) || null
+                  : val;
+              }
+            }
+            await updateGuestByBookingId(bookingId, updates);
             results.updated++;
             results.changes.push(`Updated: ${transformed.first_name} ${transformed.last_name} (${bookingId})`);
           } else {
@@ -736,7 +730,31 @@ export async function POST(request: NextRequest) {
           }
         } else {
           // New booking
-          toAdd.push(transformed);
+          toAdd.push({
+            booking_id: transformed.booking_id,
+            source: transformed.source,
+            status: transformed.status,
+            first_name: transformed.first_name,
+            last_name: transformed.last_name,
+            email: transformed.email,
+            phone: transformed.phone,
+            country: transformed.country,
+            language: transformed.language,
+            property: transformed.property,
+            room: transformed.room,
+            check_in: transformed.check_in || undefined,
+            check_out: transformed.check_out || undefined,
+            nights: parseInt(transformed.nights) || null,
+            guests: parseInt(transformed.guests) || null,
+            adults: parseInt(transformed.adults) || null,
+            children: parseInt(transformed.children) || 0,
+            total_eur: parseFloat(transformed.total_eur) || null,
+            special_requests: transformed.special_requests,
+            arrival_time_stated: transformed.arrival_time_stated,
+            arrival_confirmed: "pending",
+            midstay_checkin: "pending",
+            created_at: transformed.created_at,
+          });
           results.added++;
           results.changes.push(`Added: ${transformed.first_name} ${transformed.last_name} - ${transformed.check_in} (${bookingId})`);
         }
@@ -745,10 +763,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Batch add new rows
+    // Batch insert new bookings
     if (toAdd.length > 0) {
-      const rowsData = toAdd.map((r) => objectToRow(r, HEADERS));
-      await appendToSheet("Master_Guests", rowsData);
+      await insertGuests(toAdd);
     }
 
     return NextResponse.json({

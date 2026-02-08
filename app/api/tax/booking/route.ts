@@ -1,62 +1,40 @@
 import { NextResponse } from "next/server";
-import { getSheetData, rowsToObjects } from "@/lib/sheets";
+import { getGuestByBookingId } from "@/lib/supabase";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const bookingId = searchParams.get("id");
 
   if (!bookingId) {
-    return NextResponse.json({ error: "Missing booking ID" }, { status: 400 });
+    return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
   }
 
   try {
-    // Get Master_Guests data using shared auth
-    const rows = await getSheetData("Master_Guests");
-    
-    if (rows.length < 2) {
+    const guest = await getGuestByBookingId(bookingId);
+
+    if (!guest) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
-
-    const guests = rowsToObjects<Record<string, string>>(rows);
-    
-    // Find the booking by ID
-    const booking = guests.find(g => g.booking_id === bookingId);
-    
-    if (!booking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
-    }
-
-    // Build guest name
-    let guestName = "";
-    if (booking.guest_name) {
-      guestName = booking.guest_name;
-    } else {
-      guestName = [booking.first_name, booking.last_name].filter(Boolean).join(" ");
-    }
-
-    // Parse nights and guests
-    const nights = parseInt(booking.nights) || 1;
-    const guestCount = parseInt(booking.guests) || 1;
-    
-    // Calculate city tax: €2.50 per person per night
-    const cityTax = 2.5 * nights * guestCount;
 
     return NextResponse.json({
       booking: {
-        id: booking.booking_id,
-        guestName,
-        checkIn: booking.check_in?.split("T")[0] || "",
-        checkOut: booking.check_out?.split("T")[0] || "",
-        room: booking.room || "",
-        property: booking.property || "",
-        nights,
-        guests: guestCount,
-        cityTax,
-        taxPaid: booking.city_tax_paid === "true" || booking.city_tax_paid === "TRUE",
+        booking_id: guest.booking_id,
+        first_name: guest.first_name,
+        last_name: guest.last_name,
+        check_in: guest.check_in,
+        check_out: guest.check_out,
+        nights: guest.nights,
+        guests: guest.guests,
+        total_eur: guest.total_eur,
+        city_tax_paid: guest.city_tax_paid,
+        property: guest.property,
+        room: guest.room,
+        source: guest.source,
+        status: guest.status,
       },
     });
   } catch (error) {
-    console.error("Error fetching booking:", error);
+    console.error("Tax booking error:", error);
     return NextResponse.json({ error: "Failed to fetch booking" }, { status: 500 });
   }
 }

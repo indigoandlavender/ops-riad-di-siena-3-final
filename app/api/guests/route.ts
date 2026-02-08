@@ -1,94 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSheetData, updateSheetRow, rowsToObjects, appendToSheet } from "@/lib/sheets";
+import { getAllGuests, updateGuestByBookingId, insertGuest, MasterGuest } from "@/lib/supabase";
 
-// Normalize phone number - ensure it has + prefix and is properly formatted
 function normalizePhone(phone: string | number | undefined): string {
   if (!phone) return "";
   let cleaned = String(phone).replace(/[^\d+]/g, "");
-  // Remove leading quote if present (Google Sheets text indicator)
-  if (cleaned.startsWith("'")) {
-    cleaned = cleaned.slice(1);
-  }
-  // Add + prefix if missing
-  if (cleaned && !cleaned.startsWith("+")) {
-    cleaned = "+" + cleaned;
-  }
+  if (cleaned.startsWith("'")) cleaned = cleaned.slice(1);
+  if (cleaned && !cleaned.startsWith("+")) cleaned = "+" + cleaned;
   return cleaned;
-}
-
-// Match the actual Master_Guests sheet columns (29 columns)
-const HEADERS = [
-  "booking_id",
-  "source",
-  "status",
-  "first_name",
-  "last_name",
-  "email",
-  "phone",
-  "country",
-  "language",
-  "property",
-  "room",
-  "check_in",
-  "check_out",
-  "nights",
-  "guests",
-  "adults",
-  "children",
-  "total_eur",
-  "city_tax",
-  "special_requests",
-  "arrival_time_stated",
-  "arrival_request_sent",
-  "arrival_confirmed",
-  "arrival_time_confirmed",
-  "read_messages",
-  "midstay_checkin",
-  "notes",
-  "created_at",
-  "updated_at",
-];
-
-interface Guest {
-  booking_id: string;
-  source: string;
-  status: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  country: string;
-  language: string;
-  property: string;
-  room: string;
-  check_in: string;
-  check_out: string;
-  nights: string;
-  guests: string;
-  adults: string;
-  children: string;
-  total_eur: string;
-  city_tax: string;
-  special_requests: string;
-  arrival_time_stated: string;
-  arrival_request_sent: string;
-  arrival_confirmed: string;
-  arrival_time_confirmed: string;
-  read_messages: string;
-  midstay_checkin: string;
-  notes: string;
-  created_at: string;
-  updated_at: string;
-  [key: string]: string;
 }
 
 export async function GET() {
   try {
-    const rows = await getSheetData("Master_Guests");
-    const allGuests = rowsToObjects<Guest>(rows);
+    const allGuests = await getAllGuests();
 
-    // Deduplicate by booking_id (keep last occurrence - most recent)
-    const guestMap = new Map<string, Guest>();
+    // Deduplicate by booking_id (keep last occurrence)
+    const guestMap = new Map<string, MasterGuest>();
     for (const guest of allGuests) {
       if (guest.booking_id) {
         guestMap.set(guest.booking_id, guest);
@@ -96,18 +22,41 @@ export async function GET() {
     }
     const guests = Array.from(guestMap.values());
 
-    // Transform to match frontend interface
     const transformed = guests.map((g) => ({
-      ...g,
-      // Normalize phone number
+      id: g.id,
+      booking_id: g.booking_id,
+      source: g.source,
+      status: g.status,
+      first_name: g.first_name,
+      last_name: g.last_name,
+      email: g.email,
       phone: normalizePhone(g.phone),
-      // Combine first_name and last_name into guest_name
+      country: g.country,
+      language: g.language,
+      property: g.property,
+      room: g.room,
+      check_in: g.check_in,
+      check_out: g.check_out,
+      nights: g.nights != null ? String(g.nights) : "",
+      guests: g.guests != null ? String(g.guests) : "",
+      adults: g.adults != null ? String(g.adults) : "",
+      children: g.children != null ? String(g.children) : "",
+      total_eur: g.total_eur != null ? String(g.total_eur) : "",
+      city_tax: g.city_tax != null ? String(g.city_tax) : "",
+      special_requests: g.special_requests,
+      arrival_time_stated: g.arrival_time_stated,
+      arrival_request_sent: g.arrival_request_sent,
+      arrival_confirmed: g.arrival_confirmed,
+      arrival_time_confirmed: g.arrival_time_confirmed,
+      read_messages: g.read_messages,
+      midstay_checkin: g.midstay_checkin,
+      city_tax_paid: g.city_tax_paid,
+      created_at: g.created_at,
+      updated_at: g.updated_at,
+      // Frontend compatibility
       guest_name: [g.first_name, g.last_name].filter(Boolean).join(" ") || "Unknown Guest",
-      // Map room to room_type for frontend compatibility
       room_type: g.room || "",
-      // Map guests to guests_count
-      guests_count: g.guests || "",
-      // Map arrival fields
+      guests_count: g.guests != null ? String(g.guests) : "",
       stated_arrival_time: g.arrival_time_stated || "",
     }));
 
@@ -127,43 +76,38 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Missing booking_id" }, { status: 400 });
     }
 
-    // Get current data
-    const rows = await getSheetData("Master_Guests");
-    const guests = rowsToObjects<Guest>(rows);
-
-    // Find the guest
-    const guestIndex = guests.findIndex((g) => g.booking_id === booking_id);
-    if (guestIndex === -1) {
-      return NextResponse.json({ error: "Guest not found" }, { status: 404 });
+    const supabaseUpdates: Partial<MasterGuest> = {};
+    // Map any incoming fields
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined && value !== null) {
+        if (key === "nights" || key === "guests" || key === "adults" || key === "children") {
+          (supabaseUpdates as any)[key] = parseInt(String(value)) || null;
+        } else if (key === "total_eur" || key === "city_tax") {
+          (supabaseUpdates as any)[key] = parseFloat(String(value)) || null;
+        } else {
+          (supabaseUpdates as any)[key] = String(value);
+        }
+      }
     }
 
-    // Merge updates
-    const updated = { ...guests[guestIndex], ...updates };
-    updated.updated_at = new Date().toISOString();
+    const updated = await updateGuestByBookingId(booking_id, supabaseUpdates);
 
-    // Convert to row array in correct column order
-    const rowValues = HEADERS.map((h) => updated[h] || "");
-
-    // Update the sheet
-    await updateSheetRow("Master_Guests", guestIndex, rowValues);
+    if (!updated) {
+      return NextResponse.json({ error: "Guest not found" }, { status: 404 });
+    }
 
     return NextResponse.json({ success: true, guest: updated });
   } catch (error) {
     console.error("Error updating guest:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Update failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Update failed" }, { status: 500 });
   }
 }
 
-// Add new guest (for manual entry)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const now = new Date().toISOString();
-    
-    const guest: Guest = {
+
+    const guest = await insertGuest({
       booking_id: body.booking_id || `OPS-${Date.now()}`,
       source: body.source || "manual",
       status: body.status || "confirmed",
@@ -177,34 +121,18 @@ export async function POST(request: NextRequest) {
       room: body.room || "",
       check_in: body.check_in || "",
       check_out: body.check_out || "",
-      nights: body.nights || "",
-      guests: body.guests || "",
-      adults: body.adults || "",
-      children: body.children || "",
-      total_eur: body.total_eur || "",
-      city_tax: body.city_tax || "",
+      nights: parseInt(body.nights) || null,
+      guests: parseInt(body.guests) || null,
+      adults: parseInt(body.adults) || null,
+      children: parseInt(body.children) || 0,
+      total_eur: parseFloat(body.total_eur) || null,
       special_requests: body.special_requests || "",
       arrival_time_stated: body.arrival_time_stated || "",
-      arrival_request_sent: "",
-      arrival_confirmed: "",
-      arrival_time_confirmed: "",
-      read_messages: "",
-      midstay_checkin: "",
-      notes: body.notes || "",
-      created_at: now,
-      updated_at: now,
-    };
-
-    // Append to sheet
-    const rowValues = HEADERS.map((h) => guest[h] || "");
-    await appendToSheet("Master_Guests", [rowValues]);
+    });
 
     return NextResponse.json({ success: true, guest });
   } catch (error) {
     console.error("Error creating guest:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Create failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Create failed" }, { status: 500 });
   }
 }

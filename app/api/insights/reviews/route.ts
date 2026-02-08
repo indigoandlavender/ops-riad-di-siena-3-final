@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { google } from "googleapis";
+import { getAllGuests } from "@/lib/supabase";
 import fs from "fs";
 import path from "path";
 
@@ -210,45 +210,21 @@ function analyzeSentiment(reviews: any[]): { positive: number; neutral: number; 
   return { positive, neutral, negative, keywords };
 }
 
-// Get occupancy data from Master_Guests
+// Get occupancy data from master_guests (Supabase)
 async function getOccupancyData(): Promise<Map<string, { bookings: number; nights: number }>> {
-  const auth = new google.auth.GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    },
-    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-  });
-
-  const sheets = google.sheets({ version: "v4", auth });
-  const sheetId = process.env.OPS_SHEET_ID || process.env.GOOGLE_SPREADSHEET_ID;
-  
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId,
-    range: "Master_Guests!A:Z",
-  });
-  
-  const rows = response.data.values || [];
-  if (rows.length < 2) return new Map();
-  
-  const headers = rows[0];
-  const checkinIdx = headers.indexOf("check_in");
-  const checkoutIdx = headers.indexOf("check_out");
+  const guests = await getAllGuests();
   
   const monthlyData: Map<string, { bookings: number; nights: number }> = new Map();
   
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i];
-    const checkin = row[checkinIdx];
-    if (!checkin) continue;
+  for (const guest of guests) {
+    if (!guest.check_in || guest.status === "cancelled" || guest.source === "Blocked" || guest.source === "Blackout") continue;
     
-    const date = new Date(checkin);
+    const date = new Date(guest.check_in);
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     
-    const checkout = row[checkoutIdx];
-    let nights = 1;
-    if (checkout) {
-      const checkoutDate = new Date(checkout);
+    let nights = guest.nights || 1;
+    if (!guest.nights && guest.check_out) {
+      const checkoutDate = new Date(guest.check_out);
       nights = Math.max(1, Math.round((checkoutDate.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)));
     }
     

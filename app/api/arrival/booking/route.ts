@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSheetData, rowsToObjects } from "@/lib/sheets";
+import { getGuestByBookingId } from "@/lib/supabase";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -10,38 +10,22 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Get Master_Guests data using shared auth
-    const rows = await getSheetData("Master_Guests");
-    
-    if (rows.length < 2) {
+    const guest = await getGuestByBookingId(bookingId);
+
+    if (!guest) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
 
-    const guests = rowsToObjects<Record<string, string>>(rows);
-    
-    // Find the booking by ID
-    const booking = guests.find(g => g.booking_id === bookingId);
-    
-    if (!booking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
-    }
-
-    // Build guest name
-    let guestName = "";
-    if (booking.guest_name) {
-      guestName = booking.guest_name;
-    } else {
-      guestName = [booking.first_name, booking.last_name].filter(Boolean).join(" ");
-    }
+    const guestName = [guest.first_name, guest.last_name].filter(Boolean).join(" ");
 
     return NextResponse.json({
       booking: {
-        id: booking.booking_id,
+        id: guest.booking_id,
         guestName,
-        checkIn: booking.check_in?.split("T")[0] || "",
-        checkOut: booking.check_out?.split("T")[0] || "",
-        room: booking.room || "",
-        arrivalTime: booking.arrival_time_confirmed || "",
+        checkIn: guest.check_in?.split("T")[0] || "",
+        checkOut: guest.check_out?.split("T")[0] || "",
+        room: guest.room || "",
+        arrivalTime: guest.arrival_time_confirmed || "",
       },
     });
   } catch (error) {
