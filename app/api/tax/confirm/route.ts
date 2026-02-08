@@ -36,8 +36,13 @@ export async function POST(request: NextRequest) {
           bookingId: updated.booking_id,
           guestName: `${updated.first_name} ${updated.last_name}`,
           guestEmail: updated.email,
-          amount: amount || "city tax",
-          paymentMethod: payment_method,
+          checkIn: updated.check_in || "",
+          checkOut: updated.check_out || "",
+          nights: updated.nights || 1,
+          guests: updated.guests || 1,
+          room: updated.room,
+          property: updated.property,
+          cityTax: parseFloat(amount) || undefined,
         });
       }
     } catch (emailErr) {
